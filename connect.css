@@ -78,23 +78,8 @@ body {
     font-size: 40px;
     font-weight: bold;
     color: #333;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
-  
-  /* Hover effect for clickable cells */
-  td a {
-    display: block;
-    text-decoration: none;
-    color: inherit;
-    height: 100%;
-    width: 100%;
-    line-height: 100px; /* Vertical centering for the text */
-  }
-  
-  /* Add hover effect to make it interactive */
-  td:hover {
-    background-color: #6a9999;
+    /* cursor: pointer; */
+    /* transition: background-color 0.3s ease; */
   }
   
 .form_box {

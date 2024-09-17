@@ -1,30 +1,30 @@
-/* General body styles */
+
 body {
     font-family: Arial, sans-serif;
     text-align: center;
     background-color: #f4f4f4;
 }
 
-/* Style for the header (name and time) */
+
 p {
     font-size: 30px;
     margin-bottom: 20px;
 }
 
-/* Style for the moves left section */
+
 .moves-left {
     font-size: 30px;
     margin-bottom: 20px;
 }
 
-/* Style for centering the table and increasing its size */
+
 table {
-    margin: 0 auto; /* Center the table */
+    margin: 0 auto; 
     border-collapse: collapse;
-    transform: scale(1.); /* Double the size of the table */
+    transform: scale(1.); 
 }
 
-/* Style for individual table cells */
+
 td {
     width: 30px;
     height: 30px;
@@ -34,7 +34,7 @@ td {
     font-size: 20px;
 }
 
-/* Button inside the table cells */
+
 td button {
     width: 100%;
     height: 100%;
@@ -44,24 +44,58 @@ td button {
     cursor: pointer;
 }
 
-/* Styling the game-over message */
+
 .game-over-message {
     font-size: 24px;
     color: red;
     margin-top: 20px;
 }
 
-/* Styling the play again button */
+
 button[type="submit"] {
     margin-top: 10px;
     padding: 10px 20px;
     font-size: 18px;
-    background-color: #4CAF50;
-    color: white;
+    background-color: transparent;
+
     border: none;
     cursor: pointer;
+    
 }
 
 button[type="submit"]:hover {
-    background-color: #45a049;
+    background-color: lightgreen;
+}
+
+
+td.hit {
+    background-color: #4CAF50; 
+    color: white;
+}
+
+
+td.miss {
+    background-color: #f44336; 
+    color: white;
+}
+
+
+td.default {
+    background-color: #d3d3d3; 
+    color: black;
+}
+
+button[type="submit"][name="play_again"] {
+    margin-top: 10px;
+    padding: 10px 20px;
+    font-size: 18px;
+    background-color: #d3d3d3; 
+    color: black;
+    border: 2px solid black; 
+    cursor: pointer;
+}
+
+/* Change color on hover */
+button[type="submit"][name="play_again"]:hover {
+    background-color: #a9a9a9; /* Darker grey on hover */
 }

@@ -44,7 +44,8 @@
             }
             // print($row);
             if ($row == -1){
-                echo "<button type='submit' name='board' style='visibility:hidden'></button>";//to take the space that button would have taken
+                // echo "<button type='submit' name='board' style='visibility:hidden'></button>";//to take the space that button would have taken
+                echo '';
                 continue;
             }
             $opponent_url = opponent_move($board, $index);
@@ -337,7 +338,7 @@
         // print(json_encode($array));
         if (check_winner($board) == "X") {
             echo "
-                <p>You Won!</p>
+                <p>You won!</p>
                 <form method='POST' action='connect.php'>
                     <input type='hidden' name='name' value='$name'>
                     <button type='submit'>Play again</button>
@@ -346,7 +347,7 @@
         }
         else if (check_winner($board) == "O") {
             echo "
-                <p>I Won!</p>
+                <p>I won!</p>
                 <form method='POST' action='connect.php'>
                     <input type='hidden' name='name' value='$name'>
                     <button type='submit'>Play again</button>
@@ -355,7 +356,7 @@
         }
         else if (check_winner($board) == "Draw") {
             echo '
-                WINNER: NONE. A STRANGE GAME. THE ONLY WINNING MOVE IS NOT TO PLAY.
+                Draw
             ';
         }
         else{

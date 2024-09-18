@@ -148,7 +148,7 @@
         $moves = array_values($moves);//reindex it
         $url_index = goto_index( $board, $index );
     
-        echo " Opponent Move: $index";
+        //echo " Opponent Move: $index";
         return $url_index;//this is the move that the opponent is going to make
     }
 
@@ -161,36 +161,33 @@
         $date = date('m/d/y, h:i A'); // Example: "Saturday, September 14, 2024"
 
         if (isset($_GET['board'])) {
-            $board = str_replace('%20', ' ', $_GET['board']); // Decode spaces from URL
+            $board = urldecode($_GET['board']);
         } else {
             $board = '        '; // 9 spaces for an empty board
         }
+        $win = check_winner($board);
         echo "
         <div class='form_box'>
         <h1>Hello, $name!</h1>
         <p>Today's date is $date.</p>
         ";
-        if (check_winner($board) == "X") {
-            echo "
-                <p>You Won!</p>
-                <a href='ttt.php?name=$name'>Play again</a>
-            ";
+        if ($win == null){//game isn't over yet
+            display_board($board, $name);
         }
-        else if (check_winner($board) == "O") {
-            echo "
-                <p>I Won!</p>
-                <a href='ttt.php?name=$name'>Play again</a>
-            ";
+        echo '</div>';
+        if ($win == "X") {
+            echo "You won!";
+            echo "<a href='ttt.php?name=$name'>Play again</a>";
         }
-        else if (check_winner($board) == "Draw") {
+        else if ($win == "O") {
+            echo "I won!";
+            echo "<a href='ttt.php?name=$name'>Play again</a>";
+        }
+        else if ($win == "Draw") {
             echo '
                 WINNER: NONE. A STRANGE GAME. THE ONLY WINNING MOVE IS NOT TO PLAY.
             ';
         }
-        else{//game isn't over yet
-            display_board($board, $name);
-        }
-        echo '</div>';
     } else {
         // If 'name' is not provided, display the form
         echo '

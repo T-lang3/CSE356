@@ -2,7 +2,6 @@
 session_start();
 
 
-// Unnecessary session setup for demonstration purposes
 if (!isset($_SESSION['name'])) {
     session_unset(); // Clear session variables
 }
@@ -21,7 +20,7 @@ class BattleshipGame {
     // Constructor to initialize game
     public function __construct() {
         $this->initialize_board();
-        $this->max_hits = 2 + 3 + 4; // Total ship cells
+        $this->max_hits = 2 + 3 + 4; 
         $this->moves_left = ceil($this->rows * $this->cols * 0.60);
         $this->place_ship(2); // 2x1 ship
         $this->place_ship(3); // 3x1 ship
@@ -171,7 +170,14 @@ if (isset($_POST['play_again'])) {
                 <?php for ($row = 0; $row < 5; $row++): ?>
                     <tr>
                         <?php for ($col = 0; $col < 7; $col++): ?>
-                            <td>
+                            <td class="
+                                <?php if ($board[$row][$col] === 'X') {
+                                    echo 'hit';
+                                } elseif ($board[$row][$col] === 'O') {
+                                    echo 'miss';
+                                } else {
+                                    echo 'default';
+                                } ?>">
                                 <?php if ($game->game_over): ?>
                                     <?= $board[$row][$col]; ?>
                                 <?php else: ?>
@@ -189,7 +195,7 @@ if (isset($_POST['play_again'])) {
         <?php if ($game->game_over): ?>
             <p><?= $game->game_over; ?></p>
             <form method="POST">
-                <button type="submit" name="play_again">Play again</button>
+                <button id="again" type="submit" name="play_again">Play again</button>
             </form>
         <?php endif; ?>
     <?php endif; ?>

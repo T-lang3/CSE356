@@ -1,0 +1,4 @@
+# redis
+# sympy
+flask
+flask-pymongo

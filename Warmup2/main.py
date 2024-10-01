@@ -5,7 +5,7 @@ from email.mime.text import MIMEText
 
 
 app = Flask(__name__)
-app.config["MONGO_URI"] = "mongodb://localhost:27017/Warmup2"
+app.config["MONGO_URI"] = "mongodb://tim.cse356.compas.cs.stonybrook.edu:27017/Warmup2"
 db = PyMongo(app).db
 users = db.users
 

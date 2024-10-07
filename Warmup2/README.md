@@ -4,3 +4,5 @@ The nginx serves the websites, which FLASK is used to create the routes such as 
 
 In order to bring this online, first download docker, then do "docker compose up -d" or "docker-compose up -d" to bring up the containers.
 Then you should be able to go to http://tim.cse356.compas.cs.stonybrook.edu/
+
+For some reason, flask-session is not working, so use docker exec to go into python and install it manually

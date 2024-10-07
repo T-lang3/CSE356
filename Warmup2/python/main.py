@@ -1,85 +1,216 @@
-from flask import Flask, render_template, request, jsonify, url_for
+from email import encoders
+from email.mime.multipart import MIMEMultipart
+from urllib.parse import urlencode
+from flask import Flask, render_template, request, jsonify, url_for, flash, redirect, session
 from flask_pymongo import PyMongo
-import hashlib, os, smtplib
+# from flask_session import Session
+import hashlib, os, smtplib, string, random, urllib
 from email.mime.text import MIMEText
 
 
 app = Flask(__name__)
-app.config["MONGO_URI"] = "mongodb://tsit.cse356.compas.cs.stonybrook.edu:27017/Warmup2"
+app.config["MONGO_URI"] = "mongodb://tim.cse356.compas.cs.stonybrook.edu:27017/Warmup2"
+app.secret_key = "secret"
+# app.config["SESSION_TYPE"] = "filesystem"
+# app.config["SESSION_PERMANENT"] = True  # Set to True for sessions to persist
+# app.config["SESSION_USE_SIGNER"] = True  # Sign cookies to prevent tampering
+# app.config["SESSION_FILE_DIR"] = "./flask_session/"  # Directory to store session files
+# app.config["SESSION_FILE_THRESHOLD"] = 100  # Max number of session files to keep
+# Session(app)
+
 db = PyMongo(app).db
 users = db.users
 
 def generate_verification_key():
-    return hashlib.sha256(os.urandom(60)).hexdigest()
+    # characters = string.ascii_letters + string.digits  # Letters (both uppercase and lowercase) and digits
+    # return ''.join(random.choice(characters) for _ in range(64))
+    return "abc123"
 
 @app.route("/")
 def hello_world():
-    return "<p>Hello World!</>"
+    if 'username' in session:
+        return render_template('player.html')
+    else:
+        return ret_json(1, "User not logged in. Go to /login")
 
 @app.route('/adduser', methods=['POST', 'GET'])
 def add_user():
     if request.method == 'POST':
         # Get form data
-        print(request.form)
-        name = request.form.get('username')
-        password = request.form.get('password')
-        email = request.form.get('email')
+        data = request.json
+        name = data.get('username')  # Get 'username' from JSON
+        password = data.get('password')  # Get 'email' from JSON
+        email = data.get('email')  # Get 'email' from JSON
 
-        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        # name = request.form.get('username')
+        # password = request.form.get('password')
+        # email = request.form.get('email')
+
+        # password = hashlib.sha256(password.encode()).hexdigest()
 
         # Create a disabled user
         verification_key = generate_verification_key()
         # Create a user document
         user = {
             "username": name,
-            "password": hashed_password,
+            "password": password,
             "email": email,
             "disabled": True,
             "verification_key": verification_key
         }
 
+        found_name = users.find_one({'username': name})
+        found_email = users.find_one({'email': email})
+        
+        if (found_name or found_email):
+            return ret_json(1, "Duplicate name or email")
+        
+        # Insert the document into the users collection
+        try:
+            users.insert_one(user)
+            # urllib.parse.quote(email)
+            # urllib.parse.quote(verification_key)
+            verification_link = f"http://tim.cse356.compas.cs.stonybrook.edu/verify?email={email}&key={verification_key}"
+            print(verification_link)
+            # Send the verification email (Here you would integrate your mail server logic)
+            send_verification_email(email, verification_link)
+            return ret_json(0, "User added! Please verify with url that was sent to email. {verification_link}")
+        except Exception as e:
+            return ret_json(1, "An error occured adding user to database")
+    else:
+        return render_template('index.html')
+
+@app.route('/tempadduser', methods=['POST', 'GET'])
+def temp_add_user():
+    if request.method == 'POST':
+        # Get form data
+        # data = request.json
+        # name = data.get('username')  # Get 'username' from JSON
+        # password = data.get('password')  # Get 'email' from JSON
+        # email = data.get('email')  # Get 'email' from JSON
+        print(request.form)
+
+        name = request.form.get('username')
+        password = request.form.get('password')
+        email = request.form.get('email')
+
+        # password = hashlib.sha256(password.encode()).hexdigest()
+
+        # Create a disabled user
+        verification_key = generate_verification_key()
+        # Create a user document
+        user = {
+            "username": name,
+            "password": password,
+            "email": email,
+            "disabled": True,
+            "verification_key": verification_key
+        }
+
+        found_name = users.find_one({'username': name})
+        found_email = users.find_one({'email': email})
+        
+        if (found_name or found_email):
+            return ret_json(1, "Duplicate name or email")
+        
         # Insert the document into the users collection
         try:
             users.insert_one(user)
 
-            verification_link = url_for('verify_email', email=email, key=verification_key, _external=True)
+            verification_link = f"http://tim.cse356.compas.cs.stonybrook.edu/verify?email={email}&key={verification_key}"
             print(verification_link)
             # Send the verification email (Here you would integrate your mail server logic)
-            # send_verification_email(email, verification_link)
-            return f"User added successfully! {verification_link}"
+            send_verification_email(email, verification_link)
+            return ret_json(0, f"User added! Please verify with url that was sent to email. {verification_link}")
         except Exception as e:
-            return f"An error occurred: {str(e)}"
+            return ret_json(1, "An error occured adding user to database")
     else:
         return render_template('index.html')
 
 @app.route('/verify', methods=['GET'])
 def verify_email():
-    email = request.form.get('email')
-    key = request.form.get('key')
-    
+    email = request.args.get('email')
+    key = request.args.get('key')
+    # if "key" in request.url:
+    #     user = users.find_one({'email': email})
+    # print(f"Received email: {email}, key: {key}")
+    # print(f"URL is: {request.url}")
     # Find the user by email
     user = users.find_one({'email': email})
-    
+    print(user)
     if user:
         # Check if the key matches and the user is disabled
-        if user['verification_key'] == key and user['disabled']:
+        if user['disabled']:
             # Update the user to mark them as verified
             users.update_one({'email': email}, {'$set': {'disabled': False}})
-            return jsonify({"message": "Email verified successfully!"}), 200
+            return jsonify({"status":"OK"}), 200
         else:
-            return jsonify({"error": "Invalid verification key or email already verified"}), 400
+            return ret_json(1, "User already verified or verification key doesn't work")
     else:
-        return jsonify({"error": "User not found"}), 404
+        return ret_json(1, "User not found")
     
 
 def send_verification_email(email, link):
-    msg = MIMEText(f"Click the link to verify your account: {link}")
+    print(link)
+    msg = MIMEMultipart()
+    body = MIMEText(link, 'html')
+    msg.attach(body)
     msg['Subject'] = 'Verify your account'
-    msg['From'] = 'no-reply@yourdomain.com'
+    msg['From'] = 'no-reply@tim.cse356.compas.cs.stonybrook.edu'
     msg['To'] = email
-
-    with smtplib.SMTP('localhost') as server:
+    print(msg.as_string())
+    with smtplib.SMTP('localhost', 587) as server:
         server.send_message(msg)
 
+# @app.route('/temp', methods=['POST', 'GET'])
+# def temp():
+#     email = request.args.get('email')
+#     key = request.args.get('key')
+#     msg = MIMEText(f"Click the link to verify your account: {link}")
+#     msg['Subject'] = 'Verify your account'
+#     msg['From'] = 'no-reply@tim.cse356.compas.cs.stonybrook.edu'
+#     msg['To'] = email
+
+#     with smtplib.SMTP('localhost', 587) as server:
+#         server.send_message(msg)
+
+@app.route('/login', methods=['POST', 'GET'])
+def login():
+    if request.method == 'POST':
+        data = request.json
+        username = data.get('username')  # Get 'username' from JSON
+        password = data.get('password')  # Get 'email' from JSON
+        
+        user = users.find_one({'username': username})
+        if user['disabled']:
+            return ret_json(1, "User not yet verified.")
+
+        # Replace with your user validation logic
+        if user['username'] == username and user['password'] == password:
+            session['username'] = username
+            return ret_json(0, "User logged in.")
+        else:
+            return ret_json(1, "Wrong username or password. Try a different one")
+    else:
+        return render_template('login.html')
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.clear()  # Remove username from session
+    return ret_json(0, "Logged out successfully.")
+
+@app.route('/session', methods=['GET'])
+def get_session():
+    if 'username' in session:
+        return jsonify({"username": session['username']}), 200
+    else:
+        return jsonify({"error": "Not logged in"}), 401
+
+def ret_json(status:int, message:str):
+    if status:
+        return jsonify({"status": "ERROR", "error":True, "message": f"{message}"}), 200
+    else:
+        return jsonify({"status": "OK", "error":False, "message": f"{message}"}), 200
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)

@@ -1,0 +1,32 @@
+<!-- templates/index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask App with JS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <h1>Login</h1>
+    <form id="myForm" method="POST" action="/login">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username"><br><br>
+        
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password"><br><br>
+        
+        <button type="submit">Submit</button>
+    </form>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+      {% endif %}
+    {% endwith %}
+</body>
+</html>

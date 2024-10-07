@@ -11,7 +11,7 @@
 <body>
 
     <h1>User Creation Form</h1>
-    <form id="myForm" method="POST" action="/adduser">
+    <form id="myForm" method="POST" action="/tempadduser">
         <label for="username">Username:</label>
         <input type="text" id="username" name="username"><br><br>
         
@@ -23,6 +23,14 @@
         
         <button type="submit">Submit</button>
     </form>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+      {% endif %}
+    {% endwith %}
 
     <!-- Include your JS file -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>

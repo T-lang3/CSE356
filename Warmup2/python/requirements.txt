@@ -2,3 +2,4 @@
 # sympy
 flask
 flask-pymongo
+flask-session

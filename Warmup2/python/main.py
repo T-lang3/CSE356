@@ -1,7 +1,8 @@
 from email import encoders
 from email.mime.multipart import MIMEMultipart
+import json
 from urllib.parse import urlencode
-from flask import Flask, render_template, request, jsonify, url_for, flash, redirect, session
+from flask import Flask, render_template, request, jsonify, url_for, flash, redirect, session, send_file
 from flask_pymongo import PyMongo
 # from flask_session import Session
 import hashlib, os, smtplib, string, random, urllib
@@ -21,6 +22,28 @@ app.secret_key = "secret"
 db = PyMongo(app).db
 users = db.users
 
+def is_authenticated():
+    if 'username' in session:
+        return True
+    else:
+        return False
+
+# List of public endpoints
+public_endpoints = set([
+    'add_user',
+    'verify_email',
+    'login',
+    'logout',
+    'get_session',  # Add your public endpoint names here
+    # Add more public endpoints as needed
+])
+
+@app.before_request
+def require_login():
+    # Check if the requested endpoint is not in the public endpoints
+    if request.endpoint not in public_endpoints and not is_authenticated():
+        return ret_json(1, f"User not logged in. Go to /login")
+
 def generate_verification_key():
     # characters = string.ascii_letters + string.digits  # Letters (both uppercase and lowercase) and digits
     # return ''.join(random.choice(characters) for _ in range(64))
@@ -32,6 +55,10 @@ def hello_world():
         return render_template('player.html')
     else:
         return ret_json(1, "User not logged in. Go to /login")
+    
+@app.route("/media/output.mpd", methods=['POST', 'GET'])#Trying to get this to play the video instead of downloading it. Not working.
+def output():
+    return send_file("../media/output.mpd", mimetype="application/dash+xml")
 
 @app.route('/adduser', methods=['POST', 'GET'])
 def add_user():
@@ -80,8 +107,8 @@ def add_user():
     else:
         return render_template('index.html')
 
-@app.route('/tempadduser', methods=['POST', 'GET'])
-def temp_add_user():
+# @app.route('/tempadduser', methods=['POST', 'GET'])
+# def temp_add_user():
     if request.method == 'POST':
         # Get form data
         # data = request.json
@@ -133,8 +160,10 @@ def verify_email():
     key = request.args.get('key')
     # if "key" in request.url:
     #     user = users.find_one({'email': email})
-    # print(f"Received email: {email}, key: {key}")
-    # print(f"URL is: {request.url}")
+    print(f"Received email: {email}, key: {key}")
+    email = email.replace(" ", "+")
+    print(f"Received email: {email}, key: {key}")
+    print(f"URL is: {request.url}")
     # Find the user by email
     user = users.find_one({'email': email})
     print(user)
@@ -143,7 +172,7 @@ def verify_email():
         if user['disabled']:
             # Update the user to mark them as verified
             users.update_one({'email': email}, {'$set': {'disabled': False}})
-            return jsonify({"status":"OK"}), 200
+            return json.dumps({"status":"OK"}, separators=(',', ':'))
         else:
             return ret_json(1, "User already verified or verification key doesn't work")
     else:
@@ -206,11 +235,16 @@ def get_session():
     else:
         return jsonify({"error": "Not logged in"}), 401
 
-def ret_json(status:int, message:str):
+def ret_json(status:int, message:str):#has to have /output.md return error
     if status:
         return jsonify({"status": "ERROR", "error":True, "message": f"{message}"}), 200
     else:
         return jsonify({"status": "OK", "error":False, "message": f"{message}"}), 200
+    
+    # if status:
+    #     return json.dumps({"status":"ERROR", "error":True, "message": f"{message}"}, separators=(',', ':'))
+    # else:
+    #     return json.dumps({"status": "OK", "error":False, "message": f"{message}"}, separators=(',', ':'))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

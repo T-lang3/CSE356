@@ -8,6 +8,7 @@ services:
       - ./python:/var/www/html/
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
       - ./media:/usr/share/nginx/html/media
+      - ./play:/usr/share/nginx/html/play
     depends_on:
       - python
     network_mode: host
@@ -52,6 +53,7 @@ services:
     volumes:
       - ./python:/app
       - ./media:/app/media
+      - ./play:/app/play
     # entrypoint: ["python", "main.py"]
     entrypoint: ["tail", "-f", "/dev/null"]
     network_mode: host

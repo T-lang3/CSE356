@@ -2,11 +2,12 @@ from email import encoders
 from email.mime.multipart import MIMEMultipart
 import json
 from urllib.parse import urlencode
-from flask import Flask, render_template, request, jsonify, url_for, flash, redirect, session, send_file
+from flask import Flask, render_template, request, jsonify, url_for, flash, redirect, session, send_file, send_from_directory
 from flask_pymongo import PyMongo
 # from flask_session import Session
 import hashlib, os, smtplib, string, random, urllib
 from email.mime.text import MIMEText
+from email.message import EmailMessage
 
 
 app = Flask(__name__)
@@ -56,9 +57,18 @@ def hello_world():
     else:
         return ret_json(1, "User not logged in. Go to /login")
     
+@app.route("/media/<path:filename>")
+def serve_media(filename):
+    return send_file(f"play/{filename}", as_attachment=True)
+    
 @app.route("/media/output.mpd", methods=['POST', 'GET'])#Trying to get this to play the video instead of downloading it. Not working.
 def output():
-    return send_file("../media/output.mpd", mimetype="application/dash+xml")
+    print("fd")
+    # Define the directory where the media files are located
+    # media_directory = '/usr/share/nginx/html/media'
+    
+    # Ensure the file exists in the media directory
+    return send_file("play/output.mpd", as_attachment=True)
 
 @app.route('/adduser', methods=['POST', 'GET'])
 def add_user():
@@ -85,16 +95,19 @@ def add_user():
             "disabled": True,
             "verification_key": verification_key
         }
+        print("adding user")
 
         found_name = users.find_one({'username': name})
         found_email = users.find_one({'email': email})
         
         if (found_name or found_email):
+            print("duplicate user")
             return ret_json(1, "Duplicate name or email")
         
         # Insert the document into the users collection
         try:
             users.insert_one(user)
+            print("inserted user", user)
             # urllib.parse.quote(email)
             # urllib.parse.quote(verification_key)
             verification_link = f"http://tim.cse356.compas.cs.stonybrook.edu/verify?email={email}&key={verification_key}"
@@ -107,8 +120,8 @@ def add_user():
     else:
         return render_template('index.html')
 
-# @app.route('/tempadduser', methods=['POST', 'GET'])
-# def temp_add_user():
+@app.route('/tempadduser', methods=['POST', 'GET'])
+def temp_add_user():
     if request.method == 'POST':
         # Get form data
         # data = request.json
@@ -164,8 +177,17 @@ def verify_email():
     email = email.replace(" ", "+")
     print(f"Received email: {email}, key: {key}")
     print(f"URL is: {request.url}")
-    # Find the user by email
     user = users.find_one({'email': email})
+    if user is None:
+        return ret_json(1, "User not found")
+    if user['verification_key'] != key:
+        # Convert data to JSON with no spaces
+        json_data = json.dumps({"status": "ERROR","error":True,"message":"Invalid key"}, separators=(',', ':'))
+
+        # Manually add spaces only for the "status" key
+        formatted_json = json_data.replace('"status":"ERROR"', '"status": "ERROR"')
+        return formatted_json
+    # Find the user by email
     print(user)
     if user:
         # Check if the key matches and the user is disabled
@@ -181,9 +203,8 @@ def verify_email():
 
 def send_verification_email(email, link):
     print(link)
-    msg = MIMEMultipart()
-    body = MIMEText(link, 'html')
-    msg.attach(body)
+    msg = EmailMessage()
+    msg.set_content(link)
     msg['Subject'] = 'Verify your account'
     msg['From'] = 'no-reply@tim.cse356.compas.cs.stonybrook.edu'
     msg['To'] = email
@@ -209,21 +230,30 @@ def login():
         data = request.json
         username = data.get('username')  # Get 'username' from JSON
         password = data.get('password')  # Get 'email' from JSON
+        # username = request.form.get('username')
+        # password = request.form.get('password')
         
         user = users.find_one({'username': username})
+        print("login")
+        if user is None:
+            print(username)
+            return ret_json(1, "User not created")
         if user['disabled']:
+            print("disable", user)
             return ret_json(1, "User not yet verified.")
+        
+        print("logged in" , user)
 
         # Replace with your user validation logic
         if user['username'] == username and user['password'] == password:
             session['username'] = username
-            return ret_json(0, "User logged in.")
+            return json.dumps({"status":"OK"}, separators=(',', ':'))
         else:
             return ret_json(1, "Wrong username or password. Try a different one")
     else:
         return render_template('login.html')
 
-@app.route('/logout', methods=['POST'])
+@app.route('/logout', methods=['POST', 'GET'])
 def logout():
     session.clear()  # Remove username from session
     return ret_json(0, "Logged out successfully.")

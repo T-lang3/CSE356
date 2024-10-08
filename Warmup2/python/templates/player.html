@@ -9,13 +9,13 @@
 </head>
 <body>
     <video id="videoPlayer" controls></video>
-    <button id="playPauseBtn" onclick="togglePlayPause()">Pause</button>
+    <div id="playPauseBtn" onclick="togglePlayPause()">Pause</div>
     <select id="resolutionSelect" onchange="changeResolution()">
 	<option value="">Select Resolution</option>
     </select>
 
     <script>
-        var url = '../media/output.mpd';
+        var url = './play/output.mpd';
         var video = document.querySelector('#videoPlayer');
         var player = dashjs.MediaPlayer().create();
         player.initialize(video, url, true);

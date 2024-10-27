@@ -51,12 +51,15 @@ def generate_verification_key():
     # return ''.join(random.choice(characters) for _ in range(64))
     return "abc123"
 
-@app.route("/")
+video_files = "static/videos/m1.json"
+with open(video_files, 'r') as file:
+    data = json.load(file)
+# video_ids = [id for id,description in data]
+
+@app.route("/", methods=['GET'])
 def hello_world():
-    if 'username' in session:
-        return render_template('player.html')
-    else:
-        return ret_json(1, "User not logged in. Go to /login")
+    return render_template('index.html', videos=data)
+    
     
 @app.route("/media/<path:filename>")
 def serve_media(filename):
@@ -64,7 +67,6 @@ def serve_media(filename):
     
 @app.route("/media/output.mpd", methods=['POST', 'GET'])#Trying to get this to play the video instead of downloading it. Not working.
 def output():
-    print("fd")
     # Define the directory where the media files are located
     # media_directory = '/usr/share/nginx/html/media'
     
@@ -118,8 +120,6 @@ def add_user():
             return ret_json(0, "User added! Please verify with url that was sent to email. {verification_link}")
         except Exception as e:
             return ret_json(1, "An error occured adding user to database")
-    else:
-        return render_template('index.html')
 
 @app.route('/api/tempadduser', methods=['POST', 'GET'])
 def temp_add_user():
@@ -166,7 +166,7 @@ def temp_add_user():
         except Exception as e:
             return ret_json(1, "An error occured adding user to database")
     else:
-        return render_template('index.html')
+        return render_template('adduser.html')
 
 @app.route('/api/verify', methods=['GET'])
 def verify_email():
@@ -285,7 +285,7 @@ def get_session():
 
 @app.route('/api/thumbnail/<id>', methods=['GET'])
 def get_thumbnail(id):
-    thumbnail_path = os.path.join("thumbnails/", f"{os.path.splitext(id)[0]}.jpg")
+    thumbnail_path = os.path.join("static/thumbnails/", f"{os.path.splitext(id)[0]}.jpg")
     # Send the thumbnail as a response
     if os.path.exists(thumbnail_path):
         return send_file(thumbnail_path, mimetype='image/jpg')

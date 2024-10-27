@@ -63,7 +63,7 @@ def hello_world():
     
 @app.route("/media/<path:filename>")
 def serve_media(filename):
-    return send_file(f"play/{filename}", as_attachment=True)
+    return send_file(f"p/{filename}", as_attachment=True)
     
 @app.route("/media/output.mpd", methods=['POST', 'GET'])#Trying to get this to play the video instead of downloading it. Not working.
 def output():
@@ -71,7 +71,7 @@ def output():
     # media_directory = '/usr/share/nginx/html/media'
     
     # Ensure the file exists in the media directory
-    return send_file("play/output.mpd", as_attachment=True)
+    return send_file("p/output.mpd", as_attachment=True)
 
 @app.route('/api/adduser', methods=['POST', 'GET'])
 def add_user():

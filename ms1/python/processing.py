@@ -2,9 +2,9 @@ import os
 import subprocess
 
 # Directory containing the videos
-video_directory = "../videos/"
+video_directory = "static/videos/"
 # Directory where thumbnails will be saved
-output_directory = "../thumbnails/"
+output_directory = "static/thumbnails/"
 
 # Ensure the output directory exists
 

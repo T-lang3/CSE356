@@ -37,8 +37,8 @@ services:
       - ./python:/app
       - ./media:/app/media
       - ./play:/app/play
-    entrypoint: ["python", "main.py"]
-    # entrypoint: ["tail", "-f", "/dev/null"]
+    # entrypoint: ["python", "main.py"]
+    entrypoint: ["tail", "-f", "/dev/null"]
     network_mode: host
 
   postfix:

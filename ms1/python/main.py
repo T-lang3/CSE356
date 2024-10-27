@@ -303,5 +303,15 @@ def ret_json(status:int, message:str):#has to have /output.md return error
     # else:
     #     return json.dumps({"status": "OK", "error":False, "message": f"{message}"}, separators=(',', ':'))
 
+
+#2892038-uhd_3840_2160_30fps.mp4
+#video_files = "static/videos/m1.json"
+#with open(video_files, 'r') as file:
+#    data = json.load(file)
+@app.route("/play/<id>")
+def serve_video(id):
+    #print(data)
+    return render_template('player.html', id=id)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

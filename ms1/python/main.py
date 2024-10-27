@@ -113,7 +113,7 @@ def add_user():
             print("inserted user", user)
             # urllib.parse.quote(email)
             # urllib.parse.quote(verification_key)
-            verification_link = f"http://tim.cse356.compas.cs.stonybrook.edu/verify?email={email}&key={verification_key}"
+            verification_link = f"http://tim.cse356.compas.cs.stonybrook.edu/api/verify?email={email}&key={verification_key}"
             print(verification_link)
             # Send the verification email (Here you would integrate your mail server logic)
             send_verification_email(email, verification_link)
@@ -312,6 +312,15 @@ def ret_json(status:int, message:str):#has to have /output.md return error
 def serve_video(id):
     #print(data)
     return render_template('player.html', id=id)
+    
+@app.route('/api/manifest/<id>', methods=['GET'])
+def get_manifest(id):
+    video_path = os.path.join("static/videos/", f"{os.path.splitext(id)[0]}.mp4")
+    # Send the thumbnail as a response
+    if os.path.exists(video_path):
+        return render_template('player.html', video_path=video_path)
+    else:
+        return ret_json(1, f"Current working directory:, {video_path})")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

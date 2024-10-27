@@ -35,10 +35,11 @@ services:
       - postfix
     volumes:
       - ./python:/app
-      - ./media:/app/media
-      - ./play:/app/play
-    # entrypoint: ["python", "main.py"]
-    entrypoint: ["tail", "-f", "/dev/null"]
+      - ./media:/var/www/media/
+    
+    #comment out python and uncomment tail
+    entrypoint: ["python", "main.py"]
+    # entrypoint: ["tail", "-f", "/dev/null"]
     network_mode: host
 
   postfix:

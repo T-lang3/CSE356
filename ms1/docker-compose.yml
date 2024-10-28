@@ -38,8 +38,8 @@ services:
       - ./media:/var/www/media/
     
     #comment out python and uncomment tail
-    entrypoint: ["python", "main.py"]
-    # entrypoint: ["tail", "-f", "/dev/null"]
+    #entrypoint: ["python", "main.py"]
+    entrypoint: ["tail", "-f", "/dev/null"]
     network_mode: host
 
   postfix:

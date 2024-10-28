@@ -16,12 +16,14 @@
 
     <script>
         var id_passed = "{{id}}";
-        var url = `/static/videos/${id_passed}`;
+        /*var url = `/static/videos/${id_passed}`;*/
+        var new_id = id_passed.replace('.mp4', '.mpd')
+        var url = `/media/${new_id}`;
         var video = document.querySelector('#videoPlayer');
         var player = dashjs.MediaPlayer().create();
         player.initialize(video, url, true);
-
-        console.log("url passed: "+url);
+        
+        console.log("url passed2: "+url);
 
         
       

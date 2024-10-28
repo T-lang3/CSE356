@@ -63,7 +63,10 @@ def hello_world():
     
 @app.route("/media/<path:filename>")
 def serve_media(filename):
-    return send_file(f"p/{filename}", as_attachment=True)
+    media_dir = "/root/CSE356/ms1/media/"
+    filename = filename.lstrip("media/")
+    return send_file(os.path.join(media_dir, filename), as_attachment=True)
+    #return send_file(f"root/CSE356/ms1/media/{filename}", as_attachment=True)
     
 @app.route("/media/output.mpd", methods=['POST', 'GET'])#Trying to get this to play the video instead of downloading it. Not working.
 def output():

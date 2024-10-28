@@ -5,42 +5,97 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MPEG-DASH Player</title>
     <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
-    
+    <style>
+        body {
+            height: 140vh; /* Use the full height of the viewport */
+            margin: 0;
+            overflow-y: scroll; /* Enable vertical scrolling on the body */
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Center items horizontally */
+            justify-content: center; /* Center items vertically */
+        }
+        #videoPlayer {
+            max-width: 500px;
+            max-height: 400px; /* Set a maximum height for the video */
+            position: fixed; /* Make the video fixed */
+            top: 40%; /* Center vertically */
+            left: 50%; /* Center horizontally */
+            transform: translate(-50%, -50%); /* Adjust for the center position */
+            z-index: 10; /* Ensure it stays above other content */
+        }
+        #content {
+            height: 1500px; /* Set a larger height to allow scrolling */
+            padding: 20px; /* Add some padding for aesthetics */
+            text-align: center; /* Center align the text */
+            margin-top: 500px; /* Give space for the fixed video player */
+            top: 100px;
+        }
+    </style>
 </head>
 <body>
     <video id="videoPlayer" controls></video>
-    <div id="playPauseBtn" onclick="togglePlayPause()">Pause</div>
-    <select id="resolutionSelect" onchange="changeResolution()">
-	<option value="">Select Resolution</option>
-    </select>
+    <div id="content">
+        <div id="playPauseBtn" onclick="togglePlayPause()">Pause</div>
+        <select id="resolutionSelect" onchange="changeResolution()">
+            <option value="">Select Resolution</option>
+        </select>
+        <p>Scroll down to change the video.</p>
+    </div>
 
     <script>
         var id_passed = "{{id}}";
-        /*var url = `/static/videos/${id_passed}`;*/
-        var new_id = id_passed.replace('.mp4', '.mpd')
+        var new_id = id_passed.replace('.mp4', '.mpd');
         var url = `/media/${new_id}`;
+
+        var videoUrls = [
+            '/media/5904599-hd_1080_1920_30fps.mpd',
+            '/media/7170778-uhd_4096_2160_25fps.mpd',
+            '/media/3960164-uhd_2160_4096_25fps.mpd',
+            '/media/4764773-uhd_2160_3840_30fps.mpd',
+            '/media/4046200-hd_1920_1080_25fps.mpd',
+            '/media/4993317-hd_1920_1080_30fps.mpd',
+            '/media/7966582-uhd_3840_2160_25fps.mpd',
+            '/media/6423982-uhd_2160_3840_29fps.mpd',
+            '/media/6157331-hd_1920_1080_30fps.mpd',
+            '/media/8828853-uhd_2160_3840_30fps.mpd',
+            '/media/1874710-hd_2048_1024_30fps.mpd',
+            '/media/6093239-uhd_3840_2160_24fps.mpd',
+            '/media/13801273-hd_2160_3840_24fps.mpd',
+            '/media/2018959-hd_1920_1080_30fps.mpd',
+            '/media/1580117-uhd_3840_2160_30fps.mpd',
+            '/media/10040768-hd_1920_1080_24fps.mpd',
+            '/media/7092080-hd_1920_1080_30fps.mpd',
+            '/media/4008176-uhd_2160_4096_25fps.mpd',
+            '/media/4081736-uhd_3840_2160_24fps.mpd',
+            '/media/7196106-uhd_3840_2160_25fps.mpd',
+            '/media/8721927-uhd_2160_4096_25fps.mpd',
+            '/media/10727436-hd_1920_1080_24fps.mpd',
+            '/media/6700174-uhd_2160_3840_25fps.mpd',
+            '/media/5992350-hd_1920_1080_30fps.mpd',
+            '/media/7037850-uhd_3840_2160_30fps.mpd',
+            '/media/6379426-uhd_3840_2160_24fps.mpd',
+            '/media/2892038-uhd_3840_2160_30fps.mpd',
+            '/media/6157979-hd_1920_1080_30fps.mpd',
+            '/media/5381274-uhd_4096_2160_30fps.mpd',
+            '/media/7505754-uhd_2160_3840_30fps.mpd'
+        ];
+
         var video = document.querySelector('#videoPlayer');
         var player = dashjs.MediaPlayer().create();
         player.initialize(video, url, true);
-        
-        console.log("url passed2: "+url);
 
-        
-      
-
-
-	player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
-            populateResolutions();  // Populate resolutions once the stream is loaded
+        player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
+            populateResolutions();
         });
 
-	
-	function populateResolutions() {
+        function populateResolutions() {
             var resolutions = player.getBitrateInfoListFor('video');
             var resolutionSelect = document.getElementById('resolutionSelect');
 
             resolutions.forEach(function(resolution, index) {
                 var option = document.createElement('option');
-                option.value = index;  // Use index as the value
+                option.value = index;
                 option.text = `${resolution.width}x${resolution.height} - ${resolution.bitrate / 1000} kbps`;
                 resolutionSelect.appendChild(option);
             });
@@ -51,13 +106,11 @@
             var selectedIndex = resolutionSelect.value;
 
             if (selectedIndex) {
-		player.setQualityFor('video', parseInt(selectedIndex, 10));
-		console.log("swithxing resolution");
-            	player.play();
-	    } else {
-                player.setAutoSwitchQualityFor('video', true);  // Enable auto-quality switching
-            	console.log("no switching");
-	    }
+                player.setQualityFor('video', parseInt(selectedIndex, 10));
+                player.play();
+            } else {
+                player.setAutoSwitchQualityFor('video', true);
+            }
         }
 
         function togglePlayPause() {
@@ -70,7 +123,19 @@
             }
         }
 
+        function loadRandomVideo() {
+            var randomIndex = Math.floor(Math.random() * videoUrls.length);
+            var randomVideoUrl = videoUrls[randomIndex];
+            player.attachSource(randomVideoUrl);
+            player.play();
+        }
 
+        // Add scroll event listener
+        //window.addEventListener('scroll', loadRandomVideo);
+        window.addEventListener('scroll', function() {
+            window.scrollTo(0,45 );
+            loadRandomVideo();
+        });
     </script>
 </body>
 </html>

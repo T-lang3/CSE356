@@ -23,8 +23,8 @@ for video in "$input_dir"/*.mp4; do
         -map 0:v -b:v:6 3134k -s:v:6 1024x576 \
         -map 0:v -b:v:7 4952k -s:v:7 1280x720 \
         -f dash -seg_duration 10 -use_template 1 -use_timeline 1 \
-        -init_seg_name "$output_dir/${filename}_\$Bandwidth\$_init.m4s" \
-        -media_seg_name "$output_dir/${filename}_\$Bandwidth\$_\$Number\$.m4s" \
+        -init_seg_name "media/${filename}_\$Bandwidth\$_init.m4s" \
+        -media_seg_name "media/${filename}_\$Bandwidth\$_\$Number\$.m4s" \
         -adaptation_sets "id=0,streams=v" \
-        "$output_dir/${filename}.mpd"
+        "${filename}.mpd"
 done

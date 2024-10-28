@@ -40,7 +40,7 @@ public_endpoints = set([
     # Add more public endpoints as needed
 ])
 
-# @app.before_request
+@app.before_request
 def require_login():
     # Check if the requested endpoint is not in the public endpoints
     if request.endpoint not in public_endpoints and not is_authenticated():

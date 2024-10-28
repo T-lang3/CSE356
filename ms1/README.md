@@ -6,3 +6,5 @@ In order to bring this online, first download docker, then do "docker compose up
 Then you should be able to go to http://tim.cse356.compas.cs.stonybrook.edu/
 
 do pip install ffmpeg to use processing.py to create thumbnails and chunks for all the videos.
+
+generate_dash.sh generates the chunks and manifest. Use it in python/static/videos

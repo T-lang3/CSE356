@@ -34,7 +34,9 @@ public_endpoints = set([
     'add_user',
     'temp_add_user',
     'verify_email',
+    'hello_world',
     'login',
+    'tlogin',
     'logout',
     'get_session',  # Add your public endpoint names here
     # Add more public endpoints as needed
@@ -56,9 +58,13 @@ with open(video_files, 'r') as file:
     data = json.load(file)
 # video_ids = [id for id,description in data]
 
+count10 = dict(list(data.items())[0:10])
 @app.route("/", methods=['GET'])
 def hello_world():
-    return render_template('index.html', videos=data)
+    if 'username' in session:
+        return render_template('index.html', videos=count10)
+    else:
+        login()
     
     
 @app.route("/media/<path:filename>")
@@ -244,7 +250,8 @@ def login():
             return ret_json(1, "Wrong username or password. Try a different one")
     else:
         return render_template('login.html')
-    
+
+
 @app.route('/api/tlogin', methods=['POST', 'GET'])
 def tlogin():
     if request.method == 'POST':
@@ -318,12 +325,13 @@ def serve_video(id):
     
 @app.route('/api/manifest/<id>', methods=['GET'])
 def get_manifest(id):
-    video_path = os.path.join("static/videos/", f"{os.path.splitext(id)[0]}.mp4")
-    # Send the thumbnail as a response
-    if os.path.exists(video_path):
-        return render_template('player.html', video_path=video_path)
-    else:
-        return ret_json(1, f"Current working directory:, {video_path})")
+    # video_path = os.path.join("static/videos/", f"{os.path.splitext(id)[0]}.mp4")
+    # # Send the thumbnail as a response
+    # if os.path.exists(video_path):
+    #     return render_template('player.html', video_path=id)
+    # else:
+    #     return ret_json(1, f"Current working directory:, {video_path})")
+    return send_file(f"media/{id}.mpd", as_attachment=True)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

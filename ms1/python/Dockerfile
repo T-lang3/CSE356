@@ -10,7 +10,7 @@ WORKDIR /app
 # RUN pip install --no-cache-dir -r requirements.txt
 
 
-# RUN pip install flask flask-pymongo
+RUN pip install flask flask-pymongo
 # RUN pip install flask-session
 
 EXPOSE 5000

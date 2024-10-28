@@ -35,7 +35,7 @@ services:
       - postfix
     volumes:
       - ./python:/app
-      - ./media:/var/www/media/
+      - ./python/media:/var/www/media/
     
     #comment out python and uncomment tail
     #entrypoint: ["python", "main.py"]

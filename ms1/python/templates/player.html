@@ -16,8 +16,8 @@
             justify-content: center; /* Center items vertically */
         }
         #videoPlayer {
-            max-width: 500px;
-            max-height: 400px; /* Set a maximum height for the video */
+            max-width: 1280px;
+            max-height: 720px; /* Set a maximum height for the video */
             position: fixed; /* Make the video fixed */
             top: 40%; /* Center vertically */
             left: 50%; /* Center horizontally */
@@ -126,6 +126,8 @@
         function loadRandomVideo() {
             var randomIndex = Math.floor(Math.random() * videoUrls.length);
             var randomVideoUrl = videoUrls[randomIndex];
+            var newUrl = `/play/${randomVideoUrl.replace('/media/', '')}`;
+            window.history.replaceState({ path: newUrl }, '', newUrl);
             player.attachSource(randomVideoUrl);
             player.play();
         }

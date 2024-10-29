@@ -59,12 +59,37 @@ with open(video_files, 'r') as file:
 # video_ids = [id for id,description in data]
 
 count10 = dict(list(data.items())[0:10])
-@app.route("/", methods=['GET'])
+@app.route("/", methods=['POST', 'GET'])
 def hello_world():
     if 'username' in session:
         return render_template('index.html', videos=count10)
     else:
-        login()
+        if request.method == 'POST':
+        # data = request.json
+        # username = data.get('username')  # Get 'username' from JSON
+        # password = data.get('password')  # Get 'email' from JSON
+            username = request.form.get('username')
+            password = request.form.get('password')
+            
+            user = users.find_one({'username': username})
+            print("login")
+            if user is None:
+                print(username)
+                return ret_json(1, "User not created")
+            if user['disabled']:
+                print("disable", user)
+                return ret_json(1, "User not yet verified.")
+            
+            print("logged in" , user)
+
+            # Replace with your user validation logic
+            if user['username'] == username and user['password'] == password:
+                session['username'] = username
+                return render_template('index.html', videos=count10)
+            else:
+                return ret_json(1, "Wrong username or password. Try a different one")
+        else:
+            return render_template('rootlogin.html')
     
     
 @app.route("/media/<path:filename>")
@@ -292,6 +317,51 @@ def get_session():
         return jsonify({"isLoggedIn": True, "userID": session['username']}), 200
     else:
         return jsonify({"error": "Not logged in"}), 401
+    
+@app.route('/api/videos', methods=['POST'])
+def videos():
+    if request.method == 'POST':
+        data = request.json
+        count = data.get('count')  # Get 'username' from JSON
+        video_files = "static/videos/m1.json"
+        with open(video_files, 'r') as file:
+            data = json.load(file)
+        videos = dict(list(data.items())[0:count])
+        print(videos)
+        v = []
+        for video in videos.items():
+            print(video[0])
+            temp = {
+                "id": video[0].replace(".mp4", ""),
+                "metadata": {
+                    "description": video[1],
+                    "title": video[0].split('-')[0]
+                }
+            }
+            print(temp)
+            v.append(temp)
+        return json.dumps({"status": "OK", "videos": v})
+    else:
+        count = 10  # Get 'username' from JSON
+        video_files = "static/videos/m1.json"
+        with open(video_files, 'r') as file:
+            data = json.load(file)
+        videos = dict(list(data.items())[0:count])
+        print(videos)
+        v = []
+        for video in videos.items():
+            print(video[0])
+            temp = {
+                "id": video[0].replace(".mp4", ""),
+                "metadata": {
+                    "description": video[1],
+                    "title": video[0].split('-')[0]
+                }
+            }
+            print(temp)
+            v.append(temp)
+        return json.dumps({"status": "OK", "videos": v})
+        
 
 @app.route('/api/thumbnail/<id>', methods=['GET'])
 def get_thumbnail(id):

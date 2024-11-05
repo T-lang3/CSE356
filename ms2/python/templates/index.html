@@ -1,0 +1,23 @@
+<!-- templates/index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask App with JS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <h1>Videos</h1>
+    <ul>
+        {% for id,description in videos.items() %}
+        <li>
+            <img src="{{ url_for('static', filename='thumbnails/' ~ id.split('.')[0] ~ '.jpg') }}" alt="{{ description }}">
+        <p>{{ description }}</p>
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

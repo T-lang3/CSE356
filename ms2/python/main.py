@@ -147,7 +147,9 @@ def add_user_body(name, password, email):
         "password": password,
         "email": email,
         "disabled": True,
-        "verification_key": verification_key
+        "verification_key": verification_key,
+        "watched": [],
+        "uploaded": []
     }
     print("adding user")
 
@@ -451,15 +453,38 @@ def add_movies_to_db():
     for video in videos.items():
         print(video)
         movie = {
-        "id": video[0].replace(".mp4", ""),
-        "description": video[1],
-        "title": video[0].split('-')[0],
+            "id": video[0].replace(".mp4", ""),
+            "description": video[1],
+            "title": video[0].split('-')[0],
+            "processed": "complete"
         }
         try:
             movies.insert_one(movie)
         except Exception as e:
             return ret_json(1, "An error occured adding user to database")
     return ret_json(0, "Movie added")
+
+@app.route('/api/view', methods=['POST', 'GET'])
+def update_watched_videos():
+    id = 0
+    val = True
+    if request.method == 'POST':
+        data = request.json
+        id = data.get('id')
+    else:
+        id = "854243-hd_1280_720_30fps"
+    # Retrieve the user's current watched videos list
+    user = db.users.find_one({"username": session['username']})
+    watched = user.get("watched", [])
+    
+    # Add the video to the list if it's not already watched
+    if id not in watched:
+        watched.append(id)
+        val = False
+    
+    # Update the user's watched list in the database
+    db.users.update_one({"username": session['username']}, {"$set": {"watched": watched}})
+    return jsonify({"viewed": val}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

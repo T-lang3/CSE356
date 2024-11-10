@@ -55,6 +55,7 @@ public_endpoints = set([
     # Add more public endpoints as needed
 ])
 
+#If a method is not in public_endpoints, then you must be logged in to use the api. Comment this out to use everything without logging in
 @app.before_request
 def require_login():
     # Check if the requested endpoint is not in the public endpoints
@@ -72,6 +73,8 @@ with open(video_files, 'r') as file:
 # video_ids = [id for id,description in data]
 
 count10 = dict(list(data.items())[0:10])
+
+#The base url. If logged in, goes to index.html, else it goes to rootlogin. If using POST, then it logs in with request.form information
 @app.route("/", methods=['POST', 'GET'])
 def hello_world():
     if 'username' in session:
@@ -104,7 +107,7 @@ def hello_world():
         else:
             return render_template('rootlogin.html')
     
-    
+#sends the media. Used when player.html asks for a file
 @app.route("/media/<path:filename>")
 def serve_media(filename):
     media_dir = "/root/CSE356/ms1/media/"
@@ -112,7 +115,8 @@ def serve_media(filename):
     return send_file(os.path.join(media_dir, filename), as_attachment=True)
     #return send_file(f"root/CSE356/ms1/media/{filename}", as_attachment=True)
     
-@app.route("/media/output.mpd", methods=['POST', 'GET'])#Trying to get this to play the video instead of downloading it. Not working.
+#an old method. Not used right now
+@app.route("/media/output.mpd", methods=['POST', 'GET'])
 def output():
     # Define the directory where the media files are located
     # media_directory = '/usr/share/nginx/html/media'
@@ -120,6 +124,7 @@ def output():
     # Ensure the file exists in the media directory
     return send_file("p/output.mpd", as_attachment=True)
 
+#Adds user using post method
 @app.route('/api/adduser', methods=['POST', 'GET'])
 def add_user():
     if request.method == 'POST':
@@ -136,6 +141,7 @@ def add_user():
         # password = hashlib.sha256(password.encode()).hexdigest()
         return add_user_body(name, password, email)
 
+#adds user using a form which is given in adduser.html
 @app.route('/api/tempadduser', methods=['POST', 'GET'])
 def temp_add_user():
     if request.method == 'POST':
@@ -150,6 +156,8 @@ def temp_add_user():
     else:
         return render_template('adduser.html')
     
+#the main body that /adduser and /tempadduser uses. Generates a key and adds the user to mongodb. If there is already a user with the same name, it errors out.
+#Then it send a email with the verification link.
 def add_user_body(name, password, email):
     # Create a disabled user
     verification_key = generate_verification_key()
@@ -186,6 +194,7 @@ def add_user_body(name, password, email):
     except Exception as e:
         return ret_json(1, "An error occured adding user to database")
 
+#The result of clicking on the verification link. Checks mongo to see if there is a user with disabled = True and sets it to False.
 @app.route('/api/verify', methods=['GET'])
 def verify_email():
     email = request.args.get('email')
@@ -231,6 +240,7 @@ def send_verification_email(email, link):
     with smtplib.SMTP('localhost', 587) as server:
         server.send_message(msg)
 
+#Login using Post.
 @app.route('/api/login', methods=['POST', 'GET'])
 def login():
     if request.method == 'POST':
@@ -260,7 +270,7 @@ def login():
     else:
         return render_template('login.html')
 
-
+#Login using Get, sending login.html and getting information from the form.
 @app.route('/api/tlogin', methods=['POST', 'GET'])
 def tlogin():
     if request.method == 'POST':
@@ -302,6 +312,9 @@ def get_session():
     else:
         return jsonify({"error": "Not logged in"}), 401
     
+#sends a json of recommended videos. Gets all the feedback from the feedback collection which has {user_id, post_id, value}. Creates a sparse table and runs
+#cosine_similarity to find similar users. Based on that, it finds videos that other users like.
+#I still need to modify it so it recommends videos the user hasn't watched and then random videos.
 @app.route('/api/videos', methods=['POST', 'GET'])
 def videos():
     count = 0
@@ -367,6 +380,7 @@ def get_thumbnail(id):
     else:
         return ret_json(1, f"Current working directory:, {thumbnail_path})")
 
+#The basic json that returns when there's an error
 def ret_json(status:int, message:str):#has to have /output.md return error
     if status:
         return jsonify({"status": "ERROR", "error":True, "message": f"{message}"}), 200
@@ -378,16 +392,13 @@ def ret_json(status:int, message:str):#has to have /output.md return error
     # else:
     #     return json.dumps({"status": "OK", "error":False, "message": f"{message}"}, separators=(',', ':'))
 
-
-#2892038-uhd_3840_2160_30fps.mp4
-#video_files = "static/videos/m2.json"
-#with open(video_files, 'r') as file:
-#    data = json.load(file)
+#serves the DASH player in player.html
 @app.route("/play/<id>")
 def serve_video(id):
     #print(data)
     return render_template('player.html', id=id)
     
+#serves the manifest which downloads
 @app.route('/api/manifest/<id>', methods=['GET'])
 def get_manifest(id):
     # video_path = os.path.join("static/videos/", f"{os.path.splitext(id)[0]}.mp4")
@@ -398,6 +409,7 @@ def get_manifest(id):
     #     return ret_json(1, f"Current working directory:, {video_path})")
     return send_file(f"media/{id}.mpd", as_attachment=True)
 
+#adds to feedback collection. If it's the same value, it errors out. If there already was feedback, it changes it.
 @app.route('/api/like', methods=['POST', 'GET'])
 def like():
     id = value = 0
@@ -431,7 +443,7 @@ def like():
     like_count = feedbacks.count_documents({"post_id": id, "value": "1"})
     return {"likes": like_count}
 
-# Step 6: Function to recommend items for a user based on similarity
+#The reccommendation system. It was described in /api/videos
 def recommend_items(user_id, user_item_matrix, user_similarity_df, count = 10):
     # Step 7: Get similar users to the given user
     print(user_id)
@@ -455,6 +467,7 @@ def recommend_items(user_id, user_item_matrix, user_similarity_df, count = 10):
     recommendations = sorted(recommended_items.items(), key=lambda x: x[1], reverse=True)[:count]
     return recommendations
 
+#Made to add all the base videos into movies collection. Should only be run once
 @app.route('/api/add_movies', methods=['GET'])
 def add_movies_to_db():
     video_files = "static/videos/m2.json"
@@ -563,6 +576,7 @@ def upload_video():
 def upload_page():
     return render_template('upload.html')
 
+#Adds the video id to the user's watched field. If the user already watched, it doesn't change anything
 @app.route('/api/view', methods=['POST', 'GET'])
 def update_watched_videos():
     id = 0

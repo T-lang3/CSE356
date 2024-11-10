@@ -409,5 +409,90 @@ def test():
 
     print("Recommended videos:", recommendations)
 
+
+
+
+
+UPLOAD_FOLDER = 'static/uploads'
+MEDIA_FOLDER = '../media'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(MEDIA_FOLDER, exist_ok=True)
+@app.route('/api/upload', methods=['POST'])
+def upload_video():
+    file = request.files['mp4File']
+    author = request.form.get('author')
+    title = request.form.get('title')
+
+    original_filename = f"{uuid.uuid4()}.mp4"
+    original_file_path = os.path.join(UPLOAD_FOLDER, original_filename)
+    media_file_path = os.path.join(MEDIA_FOLDER, f"{original_filename.replace('.mp4', '')}.mpd")
+
+
+    try:
+        # Save the uploaded file
+        file.save(original_file_path)
+
+        # Run the FFmpeg command to resize and add padding
+        ffmpeg_command = [
+            "ffmpeg",
+            "-i", original_file_path,
+            "-map", "0:v", "-b:v:0", "254k", "-s:v:0", "320x180",
+            "-map", "0:v", "-b:v:1", "507k", "-s:v:1", "320x180",
+            "-map", "0:v", "-b:v:2", "759k", "-s:v:2", "480x270",
+            "-map", "0:v", "-b:v:3", "1013k", "-s:v:3", "640x360",
+            "-map", "0:v", "-b:v:4", "1254k", "-s:v:4", "640x360",
+            "-map", "0:v", "-b:v:5", "1883k", "-s:v:5", "768x432",
+            "-map", "0:v", "-b:v:6", "3134k", "-s:v:6", "1024x576",
+            "-map", "0:v", "-b:v:7", "4952k", "-s:v:7", "1280x720",
+            "-f", "dash",
+            "-seg_duration", "10", "-use_template", "1", "-use_timeline", "1",
+            "-init_seg_name", f"{MEDIA_FOLDER}/{original_filename}_$RepresentationID$_init.m4s",
+            "-media_seg_name", f"{MEDIA_FOLDER}/{original_filename}_$Bandwidth$_$Number$.m4s",
+            "-adaptation_sets", "id=0,streams=v",
+            media_file_path
+        ]
+
+        # Execute the FFmpeg command
+        subprocess.run(ffmpeg_command, check=True)
+
+    except subprocess.CalledProcessError as e:
+        return jsonify({"status": "Error", "message": f"FFmpeg processing failed: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"status": "Error", "message": f"File upload failed: {str(e)}"}), 500
+
+    # Create a response with the generated video ID
+    video_id = original_filename.replace('.mp4', '')
+
+    return jsonify({"id": video_id}), 200
+
+
+
+user_views = {}
+@app.route('/api/view', methods=['POST'])
+def mark_video_as_viewed():
+    data = request.json
+    video_id = data.get('id')
+    user_id = data.get('user_id')  
+
+    if not video_id or not user_id:
+        return jsonify({"status": "Error", "message": "Video ID and user ID are required"}), 400
+
+    if user_id not in user_views:
+        user_views[user_id] = set()
+
+    viewed = video_id in user_views[user_id]
+
+    if not viewed:
+        user_views[user_id].add(video_id)
+
+    return jsonify({"viewed": viewed}), 200
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

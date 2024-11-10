@@ -50,3 +50,24 @@ services:
       - ALLOWED_SENDER_DOMAINS=tim.cse356.compas.cs.stonybrook.edu
       - ALLOW_EMPTY_SENDER_DOMAINS=false
     network_mode: host
+
+  gorse:
+    image: zhenghaoz/gorse-in-one
+    container_name: gorse
+    ports:
+      - 8086:8086  # gRPC port
+      - 8088:8088  # HTTP port
+    environment:
+      # Use Redis as cache storage backend (unchanged).
+      GORSE_CACHE_STORE: mongodb://localhost:27017/gorse_cache
+      # Use MongoDB as data storage backend.
+      GORSE_DATA_STORE: mongodb://localhost:27017/gorse_data
+    command: >
+      --log-path /var/log/gorse/master.log
+      --cache-path /var/lib/gorse/master_cache.data
+    volumes:
+      # Mount the configuration file.
+      - ./gorse/config.toml:/etc/gorse/config.toml
+    depends_on:
+      - mongo
+    network_mode: host

@@ -3,15 +3,14 @@ from flask import Flask, render_template, request, jsonify, url_for, flash, redi
 from flask_pymongo import PyMongo
 import os, smtplib
 from email.message import EmailMessage
-from surprise import Dataset, Reader, KNNBasic, SVD, accuracy
-import pandas as pd
-from surprise.model_selection import train_test_split
-from sklearn.metrics.pairwise import cosine_similarity
+from gorse import Gorse
+from datetime import date 
 
 
 app = Flask(__name__)
 app.config["MONGO_URI"] = "mongodb://localhost:27017/Warmup2"
 app.secret_key = "secret"
+gorse = Gorse('http://localhost:8088', '')  # replace with your Gorse URL
 # app.config["SESSION_TYPE"] = "filesystem"
 # app.config["SESSION_PERMANENT"] = True  # Set to True for sessions to persist
 # app.config["SESSION_USE_SIGNER"] = True  # Sign cookies to prevent tampering
@@ -21,8 +20,6 @@ app.secret_key = "secret"
 
 db = PyMongo(app).db
 users = db.users
-feedbacks = db.feedbacks
-movies = db.movies
 
 def is_authenticated():
     if 'username' in session:
@@ -108,7 +105,7 @@ def output():
     # Ensure the file exists in the media directory
     return send_file("p/output.mpd", as_attachment=True)
 
-@app.route('/api/adduser', methods=['POST', 'GET'])
+@app.route('/api/adduser', methods=['POST'])
 def add_user():
     if request.method == 'POST':
         # Get form data
@@ -288,60 +285,49 @@ def get_session():
     else:
         return jsonify({"error": "Not logged in"}), 401
     
-@app.route('/api/videos', methods=['POST', 'GET'])
+@app.route('/api/videos', methods=['POST'])
 def videos():
-    count = 0
     if request.method == 'POST':
         data = request.json
         count = data.get('count')  # Get 'username' from JSON
+        video_files = "static/videos/m2.json"
+        with open(video_files, 'r') as file:
+            data = json.load(file)
+        videos = dict(list(data.items())[0:count])
+        print(videos)
+        v = []
+        for video in videos.items():
+            print(video[0])
+            temp = {
+                "id": video[0].replace(".mp4", ""),
+                "metadata": {
+                    "description": video[1],
+                    "title": video[0].split('-')[0]
+                }
+            }
+            print(temp)
+            v.append(temp)
+        return json.dumps({"status": "OK", "videos": v})
     else:
-        count = 10
-    f = feedbacks.find()
-    data = list(f)
-    df = pd.DataFrame(data)
-
-    # Optionally, you may want to ensure the columns are named properly
-    df = df[['user_id', 'post_id', 'value']]  # Select relevant columns
-
-    user_item_matrix = df.pivot_table(index='user_id', columns='post_id', values='value', fill_value=0)
-    
-    user_similarity = cosine_similarity(user_item_matrix)
-
-    # Step 5: Convert similarity matrix to DataFrame for better readability
-    user_similarity_df = pd.DataFrame(user_similarity, index=user_item_matrix.index, columns=user_item_matrix.index)
-    recommended_items = recommend_items(session['username'], user_item_matrix, user_similarity_df, count)
-    print(recommended_items)
-    v = []
-    for video, _ in recommended_items:
-        temp = {
-            "id": video.replace(".mp4", ""),
-            "description": video,
-            "title": video.split('-')[0],
-            "watched": True,
-            "liked": True,
-            "likevalues": 3
-        }
-        # print(temp)
-        v.append(temp)
-    return json.dumps({"videos": v})
-    # video_files = "static/videos/m2.json"
-    # with open(video_files, 'r') as file:
-    #     data = json.load(file)
-    # videos = dict(list(data.items())[0:count])
-    # print(videos)
-    # v = []
-    # for video in videos.items():
-    #     print(video[0])
-    #     temp = {
-    #         "id": video[0].replace(".mp4", ""),
-    #         "metadata": {
-    #             "description": video[1],
-    #             "title": video[0].split('-')[0]
-    #         }
-    #     }
-    #     print(temp)
-    #     v.append(temp)
-    # return json.dumps({"status": "OK", "videos": v})
+        count = 10  # Get 'username' from JSON
+        video_files = "static/videos/m2.json"
+        with open(video_files, 'r') as file:
+            data = json.load(file)
+        videos = dict(list(data.items())[0:count])
+        print(videos)
+        v = []
+        for video in videos.items():
+            print(video[0])
+            temp = {
+                "id": video[0].replace(".mp4", ""),
+                "metadata": {
+                    "description": video[1],
+                    "title": video[0].split('-')[0]
+                }
+            }
+            print(temp)
+            v.append(temp)
+        return json.dumps({"status": "OK", "videos": v})
         
 
 @app.route('/api/thumbnail/<id>', methods=['GET'])
@@ -384,14 +370,61 @@ def get_manifest(id):
     #     return ret_json(1, f"Current working directory:, {video_path})")
     return send_file(f"media/{id}.mpd", as_attachment=True)
 
+def get_recommendations(user_id, count=5):
+    # Get user's liked and disliked videos
+    user_preferences = db.users.find_one({'user_id': user_id})
+    liked_videos = user_preferences.get('liked', [])
+    disliked_videos = user_preferences.get('disliked', [])
+    
+    # Perform collaborative filtering
+    recommended_videos = gorse_client.recommend(user_id=user_id, count=count)
+
+    # Filter out already watched videos
+    recommended_videos = [
+        video for video in recommended_videos 
+        if video['id'] not in user_preferences['watched']
+    ]
+    
+    # If no recommendations, fallback to random videos
+    if not recommended_videos:
+        all_videos = list(db.videos.find())
+        recommended_videos = [video for video in all_videos 
+                              if video['id'] not in user_preferences['watched']]
+        
+        # Randomly select videos already watched if necessary
+        if not recommended_videos:
+            recommended_videos = all_videos  # could limit to count if desired
+
+    # Format the response
+    response_videos = []
+    for video in recommended_videos:
+        response_videos.append({
+            'id': video['id'],
+            'description': video['description'],
+            'title': video['title'],
+            'watched': video['id'] in user_preferences['watched'],
+            'liked': video['id'] in liked_videos,
+            'likevalues': user_preferences.get('likevalues', {}).get(video['id'], 0)
+        })
+
+    return {'videos': response_videos[:count]}  # Return only the required count
+
+# Example usage
+# recommendations = get_recommendations(user_id='user123')
+# print(recommendations)
+
+gorse_url = "http://localhost:8080/api/user/like"  # Change this to your Gorse server URL
+
 @app.route('/api/like', methods=['POST', 'GET'])
 def like():
-    id = value = 0
-    user = session['username']
+    res = 0   
+    today = date.today().isoformat()
+    id = value = user = res = 0
     if request.method == 'POST':
         data = request.json
         id = data.get('id')
         value = data.get('value')
+        user = session['username']
         if value == True:
             value = 1
         elif value == False:
@@ -402,149 +435,24 @@ def like():
         id = request.args.get('id')
         value = request.args.get('value')
         user = request.args.get('user')
+    data = {
+        'user_id': user,
+        'item_id': id,
+        'value': 1  # 1 for like
+    }
+    res = gorse.insert_feedbacks([{ 'FeedbackType': 'like', 'UserId': f'{user}', 'ItemId': f'{id}', 'Value': value, "Timestamp": f"{today}"}])
+    return json.dumps(res)
 
-    current_feedback = feedbacks.find_one({"user_id": user, "post_id": id})
-    
-    if current_feedback and current_feedback['value'] == value:
-        return ret_json(1, "Value is the same as before")   
-    if current_feedback:
-        feedbacks.update_one(
-            {"user_id": user, "post_id": id},
-            {"$set": {"value": value}}
-        )
+def insert_like(user_id, video_id):
+    data = {
+        'user_id': user_id,
+        'item_id': video_id,
+        'value': 1  # 1 for like
+    }
+    response = requests.post(gorse_url, json=data)
+    if response.status_code == 200:
+        print(f"Liked video {video_id} for user {user_id}.")
     else:
-        feedbacks.insert_one({"user_id": user, "post_id": id, "value": value})
-    like_count = feedbacks.count_documents({"post_id": id, "value": "1"})
-    return {"likes": like_count}
-
-# Step 6: Function to recommend items for a user based on similarity
-def recommend_items(user_id, user_item_matrix, user_similarity_df, count = 10):
-    # Step 7: Get similar users to the given user
-    print(user_id)
-    print(user_item_matrix)
-    similar_users = user_similarity_df[user_id][user_similarity_df[user_id] > 0].sort_values(ascending=False)[1:].index
-    # print(f"\nMost similar users to User {user_id}: {similar_users}, {user_similarity_df[user_id][user_similarity_df[user_id] > 0].sort_values(ascending=False)}")
-    
-    # Step 8: Aggregate ratings from similar users
-    recommended_items = {}
-    for similar_user in similar_users:
-        for item, rating in user_item_matrix.loc[similar_user].items():
-            # print(item, rating, user_item_matrix.loc[user_id][item] != 0)
-            if rating > 0 and user_item_matrix.loc[user_id][item] == 0:  # Avoid already rated items
-                if item not in recommended_items:
-                    recommended_items[item] = rating
-                    # print("added item", item)
-                else:
-                    recommended_items[item] += rating
-
-    # Step 9: Sort recommended items and return the top N recommendations
-    recommendations = sorted(recommended_items.items(), key=lambda x: x[1], reverse=True)[:count]
-    return recommendations
-
-@app.route('/api/add_movies', methods=['GET'])
-def add_movies_to_db():
-    video_files = "static/videos/m2.json"
-    videos = 0
-    with open(video_files, 'r') as file:
-        videos = json.load(file)
-    # print(videos.items())
-    for video in videos.items():
-        print(video)
-        movie = {
-        "id": video[0].replace(".mp4", ""),
-        "description": video[1],
-        "title": video[0].split('-')[0],
-        }
-        try:
-            movies.insert_one(movie)
-        except Exception as e:
-            return ret_json(1, "An error occured adding user to database")
-    return ret_json(0, "Movie added")
-
-
-
-
-
-UPLOAD_FOLDER = 'static/uploads'
-MEDIA_FOLDER = '../media'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(MEDIA_FOLDER, exist_ok=True)
-@app.route('/api/upload', methods=['POST'])
-def upload_video():
-    file = request.files['mp4File']
-    author = request.form.get('author')
-    title = request.form.get('title')
-
-    original_filename = f"{uuid.uuid4()}.mp4"
-    original_file_path = os.path.join(UPLOAD_FOLDER, original_filename)
-    media_file_path = os.path.join(MEDIA_FOLDER, f"{original_filename.replace('.mp4', '')}.mpd")
-
-
-    try:
-        # Save the uploaded file
-        file.save(original_file_path)
-
-        # Run the FFmpeg command to resize and add padding
-        ffmpeg_command = [
-            "ffmpeg",
-            "-i", original_file_path,
-            "-map", "0:v", "-b:v:0", "254k", "-s:v:0", "320x180",
-            "-map", "0:v", "-b:v:1", "507k", "-s:v:1", "320x180",
-            "-map", "0:v", "-b:v:2", "759k", "-s:v:2", "480x270",
-            "-map", "0:v", "-b:v:3", "1013k", "-s:v:3", "640x360",
-            "-map", "0:v", "-b:v:4", "1254k", "-s:v:4", "640x360",
-            "-map", "0:v", "-b:v:5", "1883k", "-s:v:5", "768x432",
-            "-map", "0:v", "-b:v:6", "3134k", "-s:v:6", "1024x576",
-            "-map", "0:v", "-b:v:7", "4952k", "-s:v:7", "1280x720",
-            "-f", "dash",
-            "-seg_duration", "10", "-use_template", "1", "-use_timeline", "1",
-            "-init_seg_name", f"{MEDIA_FOLDER}/{original_filename}_$RepresentationID$_init.m4s",
-            "-media_seg_name", f"{MEDIA_FOLDER}/{original_filename}_$Bandwidth$_$Number$.m4s",
-            "-adaptation_sets", "id=0,streams=v",
-            media_file_path
-        ]
-
-        # Execute the FFmpeg command
-        subprocess.run(ffmpeg_command, check=True)
-
-    except subprocess.CalledProcessError as e:
-        return jsonify({"status": "Error", "message": f"FFmpeg processing failed: {str(e)}"}), 500
-    except Exception as e:
-        return jsonify({"status": "Error", "message": f"File upload failed: {str(e)}"}), 500
-
-    # Create a response with the generated video ID
-    video_id = original_filename.replace('.mp4', '')
-
-    return jsonify({"id": video_id}), 200
-
-
-
-user_views = {}
-@app.route('/api/view', methods=['POST'])
-def mark_video_as_viewed():
-    data = request.json
-    video_id = data.get('id')
-    user_id = data.get('user_id')  
-
-    if not video_id or not user_id:
-        return jsonify({"status": "Error", "message": "Video ID and user ID are required"}), 400
-
-    if user_id not in user_views:
-        user_views[user_id] = set()
-
-    viewed = video_id in user_views[user_id]
-
-    if not viewed:
-        user_views[user_id].add(video_id)
-
-    return jsonify({"viewed": viewed}), 200
-
-
-
-
-
-
-
-
+        print(f"Failed to like video {video_id}: {response.text}")
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

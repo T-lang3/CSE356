@@ -2,11 +2,13 @@ import os
 import subprocess
 
 # Directory containing the videos
-video_directory = "static/videos/"
+video_directory = "../python/static/padded_videos/"
 # Directory where thumbnails will be saved
-output_directory = "static/thumbnails/"
+output_directory = "../python/static/thumbnails/"
 
 # Ensure the output directory exists
+if not os.path.exists(output_directory):
+    os.makedirs(output_directory)
 
 def extract_thumbnail(video_path, thumbnail_path):
     """

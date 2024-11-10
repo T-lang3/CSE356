@@ -14,10 +14,15 @@
     <ul>
         {% for id,description in videos.items() %}
         <li>
-            <img src="{{ url_for('static', filename='thumbnails/' ~ id.split('.')[0] ~ '.jpg') }}" alt="{{ description }}">
-        <p>{{ description }}</p>
+            <a href="{{ url_for('serve_video', id=id) }}">
+                <img src="{{ url_for('static', filename='thumbnails/' ~ id.split('.')[0] ~ '.jpg') }}" alt="{{ description }}">
+            </a>
+            <p>{{ description }}</p>
         </li>
         {% endfor %}
     </ul>
 </body>
+<script>
+    console.log(3)
+</script>
 </html>

@@ -22,6 +22,7 @@ app.secret_key = "secret"
 db = PyMongo(app).db
 users = db.users
 feedbacks = db.feedbacks
+movies = db.movies
 
 def is_authenticated():
     if 'username' in session:
@@ -383,46 +384,6 @@ def get_manifest(id):
     #     return ret_json(1, f"Current working directory:, {video_path})")
     return send_file(f"media/{id}.mpd", as_attachment=True)
 
-# # Assuming you have your data in a DataFrame with columns: user_id, video_id, and rating
-# df = pd.DataFrame({'user_id': [1, 1, 2], 'video_id': [1, 2, 1], 'rating': [1, -1, 1]})
-# print(df)
-# reader = Reader(rating_scale=(-1, 1))  # rating scale from -1 to +1
-# data = Dataset.load_from_df(df[['user_id', 'video_id', 'rating']], reader)
-# trainset, testset = train_test_split(data, test_size=0.25)
-
-# # Choose an algorithm (KNN or SVD)
-# algo = SVD(random_state=42)  # or KNNBasic()
-
-# # Train the algorithm on the trainset
-# algo.fit(trainset)
-
-# # Predict ratings for the testset
-# predictions = algo.test(testset)
-
-# # Evaluate accuracy
-# accuracy.rmse(predictions)
-# user_id = 1
-# video_id = 3
-# pred = algo.predict(user_id, video_id)
-# print(pred.est)  # Estimated rating (1 for like, -1 for dislike)
-# all_videos = [1, 2, 3, 4, 5]
-
-# # User's watched videos
-# watched_videos = [1, 2]
-
-# # Recommend videos the user hasn't watched
-# def test():
-#     recommendations = []
-#     for video in all_videos:
-#         if video not in watched_videos:
-#             pred = algo.predict(user_id, video)
-#             print("prediction", pred.est)
-#             if pred.est > 0:  # Recommend if predicted rating is positive (liked)
-#                 recommendations.append(video)
-
-#     print("Recommended videos:", recommendations)
-# Step 1: Example user-item interaction data (user_id, item_id, rating/like)
-
 @app.route('/api/like', methods=['POST', 'GET'])
 def like():
     id = value = 0
@@ -454,31 +415,7 @@ def like():
     else:
         feedbacks.insert_one({"user_id": user, "post_id": id, "value": value})
     like_count = feedbacks.count_documents({"post_id": id, "value": "1"})
-
-    print("User-Item Interaction Matrix:\n", user_item_matrix)
     return {"likes": like_count}
-
-# data = {
-#     'user_id': [1, 1, 2, 2, 2, 3, 3, 4, 4],
-#     'item_id': ['movie1', 'movie2', 'movie1', 'movie2', 'movie3', 'movie3', 'movie4', 'movie4', 'movie5'],
-#     'rating': [1, 1, 1, 1, 1, 1, 1, -1, 1]
-# }
-
-# # Step 2: Convert data into DataFrame
-# df = pd.DataFrame(data)
-
-# # Step 3: Create user-item matrix (user_id as rows, item_id as columns)
-# user_item_matrix = df.pivot_table(index='user_id', columns='item_id', values='rating', fill_value=0)
-
-# print("User-Item Interaction Matrix:\n", user_item_matrix)
-
-# # Step 4: Calculate Cosine Similarity between users
-# user_similarity = cosine_similarity(user_item_matrix)
-
-# # Step 5: Convert similarity matrix to DataFrame for better readability
-# user_similarity_df = pd.DataFrame(user_similarity, index=user_item_matrix.index, columns=user_item_matrix.index)
-
-# print("\nUser Similarity Matrix:\n", user_similarity_df)
 
 # Step 6: Function to recommend items for a user based on similarity
 def recommend_items(user_id, user_item_matrix, user_similarity_df, count = 10):
@@ -504,10 +441,25 @@ def recommend_items(user_id, user_item_matrix, user_similarity_df, count = 10):
     recommendations = sorted(recommended_items.items(), key=lambda x: x[1], reverse=True)[:count]
     return recommendations
 
-# Step 10: Recommend items for User 1
-# user_id = 1
-# recommended_items = recommend_items(user_id, user_item_matrix, user_similarity_df)
-# print(f"\nRecommended items for User {user_id}: {recommended_items}")
+@app.route('/api/add_movies', methods=['GET'])
+def add_movies_to_db():
+    video_files = "static/videos/m2.json"
+    videos = 0
+    with open(video_files, 'r') as file:
+        videos = json.load(file)
+    # print(videos.items())
+    for video in videos.items():
+        print(video)
+        movie = {
+        "id": video[0].replace(".mp4", ""),
+        "description": video[1],
+        "title": video[0].split('-')[0],
+        }
+        try:
+            movies.insert_one(movie)
+        except Exception as e:
+            return ret_json(1, "An error occured adding user to database")
+    return ret_json(0, "Movie added")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

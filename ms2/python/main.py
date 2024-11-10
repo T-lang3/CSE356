@@ -7,6 +7,11 @@ from surprise import Dataset, Reader, KNNBasic, SVD, accuracy
 import pandas as pd
 from surprise.model_selection import train_test_split
 from sklearn.metrics.pairwise import cosine_similarity
+import subprocess
+from redis import Redis
+from rq import Queue
+from werkzeug.utils import secure_filename
+from video_processing import process_video
 
 
 app = Flask(__name__)
@@ -23,6 +28,13 @@ db = PyMongo(app).db
 users = db.users
 feedbacks = db.feedbacks
 movies = db.movies
+
+#dummmy account
+db.users.insert_one({
+  'username': "sdf1",
+  'password': "",
+  'email': "user@example.com"
+})
 
 def is_authenticated():
     if 'username' in session:
@@ -166,7 +178,7 @@ def add_user_body(name, password, email):
         print("inserted user", user)
         # urllib.parse.quote(email)
         # urllib.parse.quote(verification_key)
-        verification_link = f"http://jackz1.cse356.compas.cs.stonybrook.edu/api/verify?email={email}&key={verification_key}"
+        verification_link = f"http://tim.cse356.compas.cs.stonybrook.edu/api/verify?email={email}&key={verification_key}"
         print(verification_link)
         # Send the verification email (Here you would integrate your mail server logic)
         send_verification_email(email, verification_link)
@@ -464,33 +476,61 @@ def add_movies_to_db():
             return ret_json(1, "An error occured adding user to database")
     return ret_json(0, "Movie added")
 
+
+redis = Redis(host='localhost', port=6379, db=0)  
+q = Queue(connection=redis)
+
+UPLOAD_FOLDER = '/python/static/upload'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 @app.route('/api/upload', methods=['POST'])
 def upload_video():
     author = request.form.get('author')
     title = request.form.get('title')
     mp4_file = request.files.get('mp4File')
 
+    if not author or not title or not mp4_file:
+        return jsonify({"error": True, "message": "Missing fields", "status": "ERROR"}), 400
+
+    #save movie to database
+    movie_id = os.path.splitext(mp4_file.filename)[0]
     movie = {
-            "id": mp4_file.replace(".mp4", ""),
+            "id": movie_id,
             "description": title,
             "title": title,
-            "processed": "complete"
+            "processed": "processing"
         }
     try:
         movies.insert_one(movie)
     except Exception as e:
-        return ret_json(1, "An error occured adding user to database")
+        return jsonify({"error": True, "message": f"An error occurred adding movie to database: {str(e)}", "status": "ERROR"}), 500
 
-    temp_path = f"/python/static/videos/{mp4_file.filename}"
-    mp4_file.save(temp_path)
+    user = db.users.find_one({"username": session['username']})
+    uploaded = user.get("uploaded", [])
+    uploaded.append({
+        "id": movie_id,
+        "title": title,
+        "processed": "processing"
+    })
+    db.users.update_one({"username": session['username']}, {"$set": {"uploaded": uploaded}})
+    
+
+    file_path = os.path.join(UPLOAD_FOLDER, secure_filename(mp4_file.filename))
+    try:
+        mp4_file.save(file_path)
+    except Exception as e:
+        return jsonify({"error": True, "message": f"File save error: {str(e)}", "status": "ERROR"}), 500
+
 
     # Resize and process the video using ffmpeg
     output_dir = "../media"
+    q.enqueue(process_video, file_path, output_dir, movie_id)
+    '''
     os.makedirs(output_dir, exist_ok=True)
     filename = os.path.splitext(mp4_file.filename)[0]  # Get filename without extension
 
     ffmpeg_command = [
-        "ffmpeg", "-i", temp_path,
+        "ffmpeg", "-i", file_path,
         "-map", "0:v", "-b:v:0", "254k", "-s:v:0", "320x180",
         "-map", "0:v", "-b:v:1", "507k", "-s:v:1", "320x180",
         "-map", "0:v", "-b:v:2", "759k", "-s:v:2", "480x270",
@@ -506,13 +546,22 @@ def upload_video():
         f"{output_dir}/{filename}.mpd"
     ]
 
-    # Run the ffmpeg command
-    subprocess.run(ffmpeg_command, check=True)
+    #run ffmpeg command
+    try:
+        subprocess.run(ffmpeg_command, check=True)
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": True, "message": f"FFmpeg processing error: {str(e)}", "status": "ERROR"}), 500
+    finally:
+        # Remove the temporary file
+        os.remove(file_path)'''
 
-    # Remove the temporary file
-    os.remove(temp_path)
+    return jsonify({"id": movie_id, "status": "processing"}), 202
 
-    return jsonify({"id": mp4_file.replace(".mp4", "")}), 201
+    
+            
+@app.route('/upload', methods=['GET'])
+def upload_page():
+    return render_template('upload.html')
 
 @app.route('/api/view', methods=['POST', 'GET'])
 def update_watched_videos():
@@ -535,6 +584,32 @@ def update_watched_videos():
     # Update the user's watched list in the database
     db.users.update_one({"username": session['username']}, {"$set": {"watched": watched}})
     return jsonify({"viewed": val}), 200
+
+
+@app.route('/api/processing-status', methods=['GET'])
+def processing_status():
+    if 'username' not in session:
+        return jsonify({"error": True, "message": "User not authenticated", "status": "ERROR"}), 401
+
+    user = db.users.find_one({"username": session['username']})
+
+    if not user:
+        return jsonify({"error": True, "message": "User not found", "status": "ERROR"}), 404
+    video_docs = user.get("uploaded", [])
+
+    if not video_docs:
+        return jsonify({"videos": [], "status": "OK"}), 200
+
+    videos = []
+    for video in video_docs:
+        video_data = {
+            "id": video["id"],
+            "title": video["title"],
+            "status": video["processed"]
+        }
+        videos.append(video_data)
+
+    return jsonify({"videos": videos, "status": "OK"}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

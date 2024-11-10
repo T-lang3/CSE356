@@ -475,10 +475,11 @@ def upload_video():
     author = request.form.get('author')
     title = request.form.get('title')
 
+    #add_movies_to_db()
+
     original_filename = f"{uuid.uuid4()}.mp4"
     original_file_path = os.path.join(UPLOAD_FOLDER, original_filename)
     media_file_path = os.path.join(MEDIA_FOLDER, f"{original_filename.replace('.mp4', '')}.mpd")
-
 
     try:
         # Save the uploaded file
@@ -516,30 +517,6 @@ def upload_video():
     video_id = original_filename.replace('.mp4', '')
 
     return jsonify({"id": video_id}), 200
-
-
-
-user_views = {}
-@app.route('/api/view', methods=['POST'])
-def mark_video_as_viewed():
-    data = request.json
-    video_id = data.get('id')
-    user_id = data.get('user_id')  
-
-    if not video_id or not user_id:
-        return jsonify({"status": "Error", "message": "Video ID and user ID are required"}), 400
-
-    if user_id not in user_views:
-        user_views[user_id] = set()
-
-    viewed = video_id in user_views[user_id]
-
-    if not viewed:
-        user_views[user_id].add(video_id)
-
-    return jsonify({"viewed": viewed}), 200
-
-
 
 
 

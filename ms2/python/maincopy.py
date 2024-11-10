@@ -3,15 +3,14 @@ from flask import Flask, render_template, request, jsonify, url_for, flash, redi
 from flask_pymongo import PyMongo
 import os, smtplib
 from email.message import EmailMessage
-from surprise import Dataset, Reader, KNNBasic, SVD, accuracy
-import pandas as pd
-from surprise.model_selection import train_test_split
-from sklearn.metrics.pairwise import cosine_similarity
+from gorse import Gorse
+from datetime import date 
 
 
 app = Flask(__name__)
 app.config["MONGO_URI"] = "mongodb://localhost:27017/Warmup2"
 app.secret_key = "secret"
+gorse = Gorse('http://localhost:8088', '')  # replace with your Gorse URL
 # app.config["SESSION_TYPE"] = "filesystem"
 # app.config["SESSION_PERMANENT"] = True  # Set to True for sessions to persist
 # app.config["SESSION_USE_SIGNER"] = True  # Sign cookies to prevent tampering
@@ -21,7 +20,6 @@ app.secret_key = "secret"
 
 db = PyMongo(app).db
 users = db.users
-feedbacks = db.feedbacks
 
 def is_authenticated():
     if 'username' in session:
@@ -107,7 +105,7 @@ def output():
     # Ensure the file exists in the media directory
     return send_file("p/output.mpd", as_attachment=True)
 
-@app.route('/api/adduser', methods=['POST', 'GET'])
+@app.route('/api/adduser', methods=['POST'])
 def add_user():
     if request.method == 'POST':
         # Get form data
@@ -287,60 +285,49 @@ def get_session():
     else:
         return jsonify({"error": "Not logged in"}), 401
     
-@app.route('/api/videos', methods=['POST', 'GET'])
+@app.route('/api/videos', methods=['POST'])
 def videos():
-    count = 0
     if request.method == 'POST':
         data = request.json
         count = data.get('count')  # Get 'username' from JSON
+        video_files = "static/videos/m2.json"
+        with open(video_files, 'r') as file:
+            data = json.load(file)
+        videos = dict(list(data.items())[0:count])
+        print(videos)
+        v = []
+        for video in videos.items():
+            print(video[0])
+            temp = {
+                "id": video[0].replace(".mp4", ""),
+                "metadata": {
+                    "description": video[1],
+                    "title": video[0].split('-')[0]
+                }
+            }
+            print(temp)
+            v.append(temp)
+        return json.dumps({"status": "OK", "videos": v})
     else:
-        count = 10
-    f = feedbacks.find()
-    data = list(f)
-    df = pd.DataFrame(data)
-
-    # Optionally, you may want to ensure the columns are named properly
-    df = df[['user_id', 'post_id', 'value']]  # Select relevant columns
-
-    user_item_matrix = df.pivot_table(index='user_id', columns='post_id', values='value', fill_value=0)
-    
-    user_similarity = cosine_similarity(user_item_matrix)
-
-    # Step 5: Convert similarity matrix to DataFrame for better readability
-    user_similarity_df = pd.DataFrame(user_similarity, index=user_item_matrix.index, columns=user_item_matrix.index)
-    recommended_items = recommend_items(session['username'], user_item_matrix, user_similarity_df, count)
-    print(recommended_items)
-    v = []
-    for video, _ in recommended_items:
-        temp = {
-            "id": video.replace(".mp4", ""),
-            "description": video,
-            "title": video.split('-')[0],
-            "watched": True,
-            "liked": True,
-            "likevalues": 3
-        }
-        # print(temp)
-        v.append(temp)
-    return json.dumps({"videos": v})
-    # video_files = "static/videos/m2.json"
-    # with open(video_files, 'r') as file:
-    #     data = json.load(file)
-    # videos = dict(list(data.items())[0:count])
-    # print(videos)
-    # v = []
-    # for video in videos.items():
-    #     print(video[0])
-    #     temp = {
-    #         "id": video[0].replace(".mp4", ""),
-    #         "metadata": {
-    #             "description": video[1],
-    #             "title": video[0].split('-')[0]
-    #         }
-    #     }
-    #     print(temp)
-    #     v.append(temp)
-    # return json.dumps({"status": "OK", "videos": v})
+        count = 10  # Get 'username' from JSON
+        video_files = "static/videos/m2.json"
+        with open(video_files, 'r') as file:
+            data = json.load(file)
+        videos = dict(list(data.items())[0:count])
+        print(videos)
+        v = []
+        for video in videos.items():
+            print(video[0])
+            temp = {
+                "id": video[0].replace(".mp4", ""),
+                "metadata": {
+                    "description": video[1],
+                    "title": video[0].split('-')[0]
+                }
+            }
+            print(temp)
+            v.append(temp)
+        return json.dumps({"status": "OK", "videos": v})
         
 
 @app.route('/api/thumbnail/<id>', methods=['GET'])
@@ -383,54 +370,61 @@ def get_manifest(id):
     #     return ret_json(1, f"Current working directory:, {video_path})")
     return send_file(f"media/{id}.mpd", as_attachment=True)
 
-# # Assuming you have your data in a DataFrame with columns: user_id, video_id, and rating
-# df = pd.DataFrame({'user_id': [1, 1, 2], 'video_id': [1, 2, 1], 'rating': [1, -1, 1]})
-# print(df)
-# reader = Reader(rating_scale=(-1, 1))  # rating scale from -1 to +1
-# data = Dataset.load_from_df(df[['user_id', 'video_id', 'rating']], reader)
-# trainset, testset = train_test_split(data, test_size=0.25)
+def get_recommendations(user_id, count=5):
+    # Get user's liked and disliked videos
+    user_preferences = db.users.find_one({'user_id': user_id})
+    liked_videos = user_preferences.get('liked', [])
+    disliked_videos = user_preferences.get('disliked', [])
+    
+    # Perform collaborative filtering
+    recommended_videos = gorse_client.recommend(user_id=user_id, count=count)
 
-# # Choose an algorithm (KNN or SVD)
-# algo = SVD(random_state=42)  # or KNNBasic()
+    # Filter out already watched videos
+    recommended_videos = [
+        video for video in recommended_videos 
+        if video['id'] not in user_preferences['watched']
+    ]
+    
+    # If no recommendations, fallback to random videos
+    if not recommended_videos:
+        all_videos = list(db.videos.find())
+        recommended_videos = [video for video in all_videos 
+                              if video['id'] not in user_preferences['watched']]
+        
+        # Randomly select videos already watched if necessary
+        if not recommended_videos:
+            recommended_videos = all_videos  # could limit to count if desired
 
-# # Train the algorithm on the trainset
-# algo.fit(trainset)
+    # Format the response
+    response_videos = []
+    for video in recommended_videos:
+        response_videos.append({
+            'id': video['id'],
+            'description': video['description'],
+            'title': video['title'],
+            'watched': video['id'] in user_preferences['watched'],
+            'liked': video['id'] in liked_videos,
+            'likevalues': user_preferences.get('likevalues', {}).get(video['id'], 0)
+        })
 
-# # Predict ratings for the testset
-# predictions = algo.test(testset)
+    return {'videos': response_videos[:count]}  # Return only the required count
 
-# # Evaluate accuracy
-# accuracy.rmse(predictions)
-# user_id = 1
-# video_id = 3
-# pred = algo.predict(user_id, video_id)
-# print(pred.est)  # Estimated rating (1 for like, -1 for dislike)
-# all_videos = [1, 2, 3, 4, 5]
+# Example usage
+# recommendations = get_recommendations(user_id='user123')
+# print(recommendations)
 
-# # User's watched videos
-# watched_videos = [1, 2]
-
-# # Recommend videos the user hasn't watched
-# def test():
-#     recommendations = []
-#     for video in all_videos:
-#         if video not in watched_videos:
-#             pred = algo.predict(user_id, video)
-#             print("prediction", pred.est)
-#             if pred.est > 0:  # Recommend if predicted rating is positive (liked)
-#                 recommendations.append(video)
-
-#     print("Recommended videos:", recommendations)
-# Step 1: Example user-item interaction data (user_id, item_id, rating/like)
+gorse_url = "http://localhost:8080/api/user/like"  # Change this to your Gorse server URL
 
 @app.route('/api/like', methods=['POST', 'GET'])
 def like():
-    id = value = 0
-    user = session['username']
+    res = 0   
+    today = date.today().isoformat()
+    id = value = user = res = 0
     if request.method == 'POST':
         data = request.json
         id = data.get('id')
         value = data.get('value')
+        user = session['username']
         if value == True:
             value = 1
         elif value == False:
@@ -441,73 +435,24 @@ def like():
         id = request.args.get('id')
         value = request.args.get('value')
         user = request.args.get('user')
+    data = {
+        'user_id': user,
+        'item_id': id,
+        'value': 1  # 1 for like
+    }
+    res = gorse.insert_feedbacks([{ 'FeedbackType': 'like', 'UserId': f'{user}', 'ItemId': f'{id}', 'Value': value, "Timestamp": f"{today}"}])
+    return json.dumps(res)
 
-    current_feedback = feedbacks.find_one({"user_id": user, "post_id": id})
-    
-    if current_feedback and current_feedback['value'] == value:
-        return ret_json(1, "Value is the same as before")   
-    if current_feedback:
-        feedbacks.update_one(
-            {"user_id": user, "post_id": id},
-            {"$set": {"value": value}}
-        )
+def insert_like(user_id, video_id):
+    data = {
+        'user_id': user_id,
+        'item_id': video_id,
+        'value': 1  # 1 for like
+    }
+    response = requests.post(gorse_url, json=data)
+    if response.status_code == 200:
+        print(f"Liked video {video_id} for user {user_id}.")
     else:
-        feedbacks.insert_one({"user_id": user, "post_id": id, "value": value})
-    like_count = feedbacks.count_documents({"post_id": id, "value": "1"})
-
-    print("User-Item Interaction Matrix:\n", user_item_matrix)
-    return {"likes": like_count}
-
-# data = {
-#     'user_id': [1, 1, 2, 2, 2, 3, 3, 4, 4],
-#     'item_id': ['movie1', 'movie2', 'movie1', 'movie2', 'movie3', 'movie3', 'movie4', 'movie4', 'movie5'],
-#     'rating': [1, 1, 1, 1, 1, 1, 1, -1, 1]
-# }
-
-# # Step 2: Convert data into DataFrame
-# df = pd.DataFrame(data)
-
-# # Step 3: Create user-item matrix (user_id as rows, item_id as columns)
-# user_item_matrix = df.pivot_table(index='user_id', columns='item_id', values='rating', fill_value=0)
-
-# print("User-Item Interaction Matrix:\n", user_item_matrix)
-
-# # Step 4: Calculate Cosine Similarity between users
-# user_similarity = cosine_similarity(user_item_matrix)
-
-# # Step 5: Convert similarity matrix to DataFrame for better readability
-# user_similarity_df = pd.DataFrame(user_similarity, index=user_item_matrix.index, columns=user_item_matrix.index)
-
-# print("\nUser Similarity Matrix:\n", user_similarity_df)
-
-# Step 6: Function to recommend items for a user based on similarity
-def recommend_items(user_id, user_item_matrix, user_similarity_df, count = 10):
-    # Step 7: Get similar users to the given user
-    print(user_id)
-    print(user_item_matrix)
-    similar_users = user_similarity_df[user_id][user_similarity_df[user_id] > 0].sort_values(ascending=False)[1:].index
-    # print(f"\nMost similar users to User {user_id}: {similar_users}, {user_similarity_df[user_id][user_similarity_df[user_id] > 0].sort_values(ascending=False)}")
-    
-    # Step 8: Aggregate ratings from similar users
-    recommended_items = {}
-    for similar_user in similar_users:
-        for item, rating in user_item_matrix.loc[similar_user].items():
-            # print(item, rating, user_item_matrix.loc[user_id][item] != 0)
-            if rating > 0 and user_item_matrix.loc[user_id][item] == 0:  # Avoid already rated items
-                if item not in recommended_items:
-                    recommended_items[item] = rating
-                    # print("added item", item)
-                else:
-                    recommended_items[item] += rating
-
-    # Step 9: Sort recommended items and return the top N recommendations
-    recommendations = sorted(recommended_items.items(), key=lambda x: x[1], reverse=True)[:count]
-    return recommendations
-
-# Step 10: Recommend items for User 1
-# user_id = 1
-# recommended_items = recommend_items(user_id, user_item_matrix, user_similarity_df)
-# print(f"\nRecommended items for User {user_id}: {recommended_items}")
-
+        print(f"Failed to like video {video_id}: {response.text}")
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

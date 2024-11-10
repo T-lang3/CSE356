@@ -147,7 +147,9 @@ def add_user_body(name, password, email):
         "password": password,
         "email": email,
         "disabled": True,
-        "verification_key": verification_key
+        "verification_key": verification_key,
+        "watched": [],
+        "uploaded": []
     }
     print("adding user")
 
@@ -451,9 +453,10 @@ def add_movies_to_db():
     for video in videos.items():
         print(video)
         movie = {
-        "id": video[0].replace(".mp4", ""),
-        "description": video[1],
-        "title": video[0].split('-')[0],
+            "id": video[0].replace(".mp4", ""),
+            "description": video[1],
+            "title": video[0].split('-')[0],
+            "processed": "complete"
         }
         try:
             movies.insert_one(movie)
@@ -461,67 +464,27 @@ def add_movies_to_db():
             return ret_json(1, "An error occured adding user to database")
     return ret_json(0, "Movie added")
 
-
-
-
-
-UPLOAD_FOLDER = 'static/uploads'
-MEDIA_FOLDER = '../media'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(MEDIA_FOLDER, exist_ok=True)
-@app.route('/api/upload', methods=['POST'])
-def upload_video():
-    file = request.files['mp4File']
-    author = request.form.get('author')
-    title = request.form.get('title')
-
-    #add_movies_to_db()
-
-    original_filename = f"{uuid.uuid4()}.mp4"
-    original_file_path = os.path.join(UPLOAD_FOLDER, original_filename)
-    media_file_path = os.path.join(MEDIA_FOLDER, f"{original_filename.replace('.mp4', '')}.mpd")
-
-    try:
-        # Save the uploaded file
-        file.save(original_file_path)
-
-        # Run the FFmpeg command to resize and add padding
-        ffmpeg_command = [
-            "ffmpeg",
-            "-i", original_file_path,
-            "-map", "0:v", "-b:v:0", "254k", "-s:v:0", "320x180",
-            "-map", "0:v", "-b:v:1", "507k", "-s:v:1", "320x180",
-            "-map", "0:v", "-b:v:2", "759k", "-s:v:2", "480x270",
-            "-map", "0:v", "-b:v:3", "1013k", "-s:v:3", "640x360",
-            "-map", "0:v", "-b:v:4", "1254k", "-s:v:4", "640x360",
-            "-map", "0:v", "-b:v:5", "1883k", "-s:v:5", "768x432",
-            "-map", "0:v", "-b:v:6", "3134k", "-s:v:6", "1024x576",
-            "-map", "0:v", "-b:v:7", "4952k", "-s:v:7", "1280x720",
-            "-f", "dash",
-            "-seg_duration", "10", "-use_template", "1", "-use_timeline", "1",
-            "-init_seg_name", f"{MEDIA_FOLDER}/{original_filename}_$RepresentationID$_init.m4s",
-            "-media_seg_name", f"{MEDIA_FOLDER}/{original_filename}_$Bandwidth$_$Number$.m4s",
-            "-adaptation_sets", "id=0,streams=v",
-            media_file_path
-        ]
-
-        # Execute the FFmpeg command
-        subprocess.run(ffmpeg_command, check=True)
-
-    except subprocess.CalledProcessError as e:
-        return jsonify({"status": "Error", "message": f"FFmpeg processing failed: {str(e)}"}), 500
-    except Exception as e:
-        return jsonify({"status": "Error", "message": f"File upload failed: {str(e)}"}), 500
-
-    # Create a response with the generated video ID
-    video_id = original_filename.replace('.mp4', '')
-
-    return jsonify({"id": video_id}), 200
-
-
-
-
-
+@app.route('/api/view', methods=['POST', 'GET'])
+def update_watched_videos():
+    id = 0
+    val = True
+    if request.method == 'POST':
+        data = request.json
+        id = data.get('id')
+    else:
+        id = "854243-hd_1280_720_30fps"
+    # Retrieve the user's current watched videos list
+    user = db.users.find_one({"username": session['username']})
+    watched = user.get("watched", [])
+    
+    # Add the video to the list if it's not already watched
+    if id not in watched:
+        watched.append(id)
+        val = False
+    
+    # Update the user's watched list in the database
+    db.users.update_one({"username": session['username']}, {"$set": {"watched": watched}})
+    return jsonify({"viewed": val}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

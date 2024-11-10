@@ -10,8 +10,12 @@ WORKDIR /app
 # RUN pip install --no-cache-dir -r requirements.txt
 
 RUN pip install --upgrade pip
-RUN pip install flask flask-pymongo 
-RUN pip install numpy pandas 
+#commented the 2 pip out jack
+#RUN pip install flask flask-pymongo 
+#RUN pip install numpy pandas 
+
+
+
 # RUN pip install cython scikit-learn
 # RUN pip install git+https://github.com/NicolasHug/Surprise.git
 # RUN pip install PyGorse

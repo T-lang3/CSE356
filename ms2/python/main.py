@@ -166,7 +166,7 @@ def add_user_body(name, password, email):
         print("inserted user", user)
         # urllib.parse.quote(email)
         # urllib.parse.quote(verification_key)
-        verification_link = f"http://tim.cse356.compas.cs.stonybrook.edu/api/verify?email={email}&key={verification_key}"
+        verification_link = f"http://jackz1.cse356.compas.cs.stonybrook.edu/api/verify?email={email}&key={verification_key}"
         print(verification_link)
         # Send the verification email (Here you would integrate your mail server logic)
         send_verification_email(email, verification_link)
@@ -463,6 +463,56 @@ def add_movies_to_db():
         except Exception as e:
             return ret_json(1, "An error occured adding user to database")
     return ret_json(0, "Movie added")
+
+@app.route('/api/upload', methods=['POST'])
+def upload_video():
+    author = request.form.get('author')
+    title = request.form.get('title')
+    mp4_file = request.files.get('mp4File')
+
+    movie = {
+            "id": mp4_file.replace(".mp4", ""),
+            "description": title,
+            "title": title,
+            "processed": "complete"
+        }
+    try:
+        movies.insert_one(movie)
+    except Exception as e:
+        return ret_json(1, "An error occured adding user to database")
+
+    temp_path = f"/python/static/videos/{mp4_file.filename}"
+    mp4_file.save(temp_path)
+
+    # Resize and process the video using ffmpeg
+    output_dir = "../media"
+    os.makedirs(output_dir, exist_ok=True)
+    filename = os.path.splitext(mp4_file.filename)[0]  # Get filename without extension
+
+    ffmpeg_command = [
+        "ffmpeg", "-i", temp_path,
+        "-map", "0:v", "-b:v:0", "254k", "-s:v:0", "320x180",
+        "-map", "0:v", "-b:v:1", "507k", "-s:v:1", "320x180",
+        "-map", "0:v", "-b:v:2", "759k", "-s:v:2", "480x270",
+        "-map", "0:v", "-b:v:3", "1013k", "-s:v:3", "640x360",
+        "-map", "0:v", "-b:v:4", "1254k", "-s:v:4", "640x360",
+        "-map", "0:v", "-b:v:5", "1883k", "-s:v:5", "768x432",
+        "-map", "0:v", "-b:v:6", "3134k", "-s:v:6", "1024x576",
+        "-map", "0:v", "-b:v:7", "4952k", "-s:v:7", "1280x720",
+        "-f", "dash", "-seg_duration", "10", "-use_template", "1", "-use_timeline", "1",
+        "-init_seg_name", f"{output_dir}/{filename}_$RepresentationID$_init.m4s",
+        "-media_seg_name", f"{output_dir}/{filename}_$Bandwidth$_$Number$.m4s",
+        "-adaptation_sets", "id=0,streams=v",
+        f"{output_dir}/{filename}.mpd"
+    ]
+
+    # Run the ffmpeg command
+    subprocess.run(ffmpeg_command, check=True)
+
+    # Remove the temporary file
+    os.remove(temp_path)
+
+    return jsonify({"id": mp4_file.replace(".mp4", "")}), 201
 
 @app.route('/api/view', methods=['POST', 'GET'])
 def update_watched_videos():

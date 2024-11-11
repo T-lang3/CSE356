@@ -37,6 +37,8 @@
     <video id="videoPlayer" controls></video>
     <div id="content">
         <div id="playPauseBtn" onclick="togglePlayPause()">Pause</div>
+        <div id="like" onclick="like(true)">like</div>
+        <div id="dislike" onclick="like(false)">dislike</div>
         <select id="resolutionSelect" onchange="changeResolution()">
             <option value="">Select Resolution</option>
         </select>
@@ -56,6 +58,7 @@
         //     console.log(document.body.scrollHeight/2);
         // });
         var id_passed = "{{id}}";
+        var username = "{{ username }}";
         var new_id = id_passed.replace('.mp4', '.mpd');
         var url = `/media/${new_id}`;
 
@@ -132,6 +135,33 @@
                 video.pause();
                 document.getElementById("playPauseBtn").innerHTML = "Play";
             }
+        }
+        function like(val) {
+            var value = val; // Assuming you want to like the post; set this to `false` for dislike
+            var currentUrl = window.location.href; // Get the current URL
+            var id = currentUrl.split('/').pop(); // Extract the last part of the URL
+            fetch("{{ url_for('like') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'id': id,
+                    'value': value,
+                    'user': username
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // if (data.status === "OK") {
+                //     alert('Post liked! Total likes: ' + data.likes);
+                // } else {
+                //     alert('Error: ' + data.message);
+                // }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
         }
 
         historystack = [];

@@ -27,6 +27,7 @@ db = PyMongo(app).db
 users = db.users
 feedbacks = db.feedbacks
 movies = db.movies
+counter = db.counter
 
 #dummmy account
 # db.users.insert_one({
@@ -67,45 +68,13 @@ def generate_verification_key():
     # return ''.join(random.choice(characters) for _ in range(64))
     return "abc123"
 
-video_files = "static/videos/m2.json"
-with open(video_files, 'r') as file:
-    data = json.load(file)
-# video_ids = [id for id,description in data]
+# video_files = "static/videos/m2.json"
+# with open(video_files, 'r') as file:
+#     data = json.load(file)
+# # video_ids = [id for id,description in data]
 
-count10 = dict(list(data.items())[0:10])
-
-#The base url. If logged in, goes to index.html, else it goes to rootlogin. If using POST, then it logs in with request.form information
-@app.route("/", methods=['POST', 'GET'])
-def hello_world():
-    if 'username' in session:
-        return render_template('index.html', videos=count10)
-    else:
-        if request.method == 'POST':
-        # data = request.json
-        # username = data.get('username')  # Get 'username' from JSON
-        # password = data.get('password')  # Get 'email' from JSON
-            username = request.form.get('username')
-            password = request.form.get('password')
-            
-            user = users.find_one({'username': username})
-            print("login")
-            if user is None:
-                print(username)
-                return ret_json(1, "User not created")
-            if user['disabled']:
-                print("disable", user)
-                return ret_json(1, "User not yet verified.")
-            
-            print("logged in" , user)
-
-            # Replace with your user validation logic
-            if user['username'] == username and user['password'] == password:
-                session['username'] = username
-                return render_template('index.html', videos=count10)
-            else:
-                return ret_json(1, "Wrong username or password. Try a different one")
-        else:
-            return render_template('rootlogin.html')
+# count10 = dict(list(data.items())[0:10])
+# print(count10)
     
 #sends the media. Used when player.html asks for a file
 @app.route("/media/<path:filename>")
@@ -311,27 +280,47 @@ def get_session():
         return jsonify({"isLoggedIn": True, "userID": session['username']}), 200
     else:
         return jsonify({"error": "Not logged in"}), 401
-    
+@app.route('/v', methods=['GET'])    
+def get_next_id():
+    # Increment the counter and return the new value
+    count = counter.find_one_and_update(
+        {"_id": "counter"},
+        {"$inc": {"count": 1}},
+        upsert=True,
+        return_document=True       # Return the updated document
+    )
+    return count['count']
+
+def get_count_from_request():
+    count = 10  # default value
+    if request.method == 'POST':
+        data = request.json
+        count = data.get('count', 10)  # Get 'count' from JSON or use 10 as default
+    else:
+        count = int(request.args.get('count', 10))  # Get 'count' from query string or use 10 as default
+    return count
+
 #sends a json of recommended videos. Gets all the feedback from the feedback collection which has {user_id, post_id, value}. Creates a sparse table and runs
 #cosine_similarity to find similar users. Based on that, it finds videos that other users like.
 #I still need to modify it so it recommends videos the user hasn't watched and then random videos.
 #if there are recommended videos that haven't been watched, recommend those, then recommend videos that haven't been watched, then random videos
-#modify so that the same video can't pop up
 @app.route('/api/videos', methods=['POST', 'GET'])
-def videos():
-    count = 10
-    if request.method == 'POST':
-        data = request.json
-        count = data.get('count')  # Get 'username' from JSON
-    else:
-        if request.args.get('count'):
-            count = int(request.args.get('count'))
+def videos(count=10):
+    count = get_count_from_request()
+    recommendations = recommend_videos(count)
+    return json.dumps({"videos": recommendations})
+
+def recommend_videos(count=10):
     print("count", count)
     f = feedbacks.find()
     v = []#list of videos to recommend
     user = session['username']
-    videos = list(movies.find())
-    not_recommended = []
+    videos = list(movies.find({"processed":"complete"}))
+    watched = users.find_one({"username": user}).get("watched", [])
+    all_ids = list(movies.find({"processed":"complete"}, {'_id': 0, 'id': 1}))
+    not_watched = list(set([doc['id'] for doc in all_ids]) - set(watched))
+    print("videos that are not watched", not_watched)
+    not_recommended = []#has to also be not watched
     if feedbacks.count_documents({}) != 0 and feedbacks.count_documents({"user_id": user}):#There is feedback to decide what to train and user has done recommendations before
         data = list(f)
         df = pd.DataFrame(data)
@@ -345,9 +334,14 @@ def videos():
         user_similarity_df = pd.DataFrame(user_similarity, index=user_item_matrix.index, columns=user_item_matrix.index)
         recommended_items = recommend_items(user, user_item_matrix, user_similarity_df, count)
         id_list = [id for id,_ in recommended_items]
-        print(id_list)
-        not_recommended = list(movies.find({'id': {'$nin': id_list}}))#list of videos that are not recommended. Used in recommend_watched and random
-        recommended = list(movies.find({'id': {'$in': id_list}}))#list of videos that are are recommended.
+        id_list_and_not_watched = list(set(id_list) & set(not_watched))
+        not_watched_and_not_recommended = list(set(not_watched) - set(id_list))
+        print("recommended videos", id_list)
+        print("recommended videos not watched", id_list_and_not_watched)
+        print("not recommended videos not watched", not_watched_and_not_recommended)
+        not_recommended = list(movies.find({"processed":"complete", 'id': {'$in': not_watched_and_not_recommended}}))#list of videos that are not recommended and not watched
+        recommended = list(movies.find({"processed":"complete", 'id': {'$in': id_list_and_not_watched}}))#list of videos that are are recommended and not watched
+        print("length of recommendations:", len(recommended))
         for video in recommended:#video is post_id so I will need to first find the movie in movies collection to get the actual description
             temp = {
                 "id": video.get("id"),
@@ -360,28 +354,28 @@ def videos():
             # print(temp)
             v.append(temp)
     left = count - len(v)
-    if left <= 0:
-        return v
+    print("length of recommendations after adding recommended and not watched:", len(v))
     if left > 0:
         recommend_watched(v, user, not_recommended, left)
     left = count - len(v)
-    if left > 0:
+    print("length of recommendations after adding not watched and not recommended:", len(v))
+    if left > 0 and len(videos):
         recommend_random(v, videos, left)
-    print("length of recommendations:", len(v))
-    return json.dumps({"videos": v})
+    print("length of recommendations after adding randoms:", len(v))
+    return v
 
 def recommend_watched(v, user, videos, left):#get watched, get all videos, get the difference between them and return random ones in those
     try:
         watched = users.find_one({"username": user}).get("watched", [])
     except:
         return ret_json(1, "User not found")
-    not_watch = [video for video in videos if video["id"] not in watched]#get all documents whose ids are not in the watched list
+    videos = [video for video in videos if video["id"] not in watched]#get all documents whose ids are not in the watched list
 
-    if len(not_watch) > left:#If there are more not watched videos than count, we have to randomly choose which ones to recommend
-        not_watch = random.choices(not_watch, k = left)
-    print("length of not watched and not recommended", len(not_watch))
-    while not_watch:
-        video = not_watch.pop(0)
+    if len(videos) > left:#If there are more not watched videos than count, we have to randomly choose which ones to recommend
+        videos = random.choices(videos, k = left)
+    print("length of not watched and not recommended", len(videos))
+    while videos:
+        video = videos.pop(0)
         temp = {
             "id": video.get("id"),
             "description": video.get("description"),
@@ -445,7 +439,7 @@ def ret_json(status:int, message:str):#has to have /output.md return error
 @app.route("/play/<id>")
 def serve_video(id):
     #print(data)
-    return render_template('player.html', id=id)
+    return render_template('player.html', id=id, username = session['username'])
     
 #serves the manifest which downloads
 @app.route('/api/manifest/<id>', methods=['GET'])
@@ -467,17 +461,14 @@ def like():
         data = request.json
         id = data.get('id')
         value = data.get('value')
+        print(value)
         if data.get('user'):
-            user = data.get
-        if value == True:
-            value = 1
-        elif value == False:
-            value = -1
-        else:
-            value = 0
+            user = data.get('user')
+        value = 1 if value == True else -1 if value == False else 0
     else:
         id = request.args.get('id')
         value = int(request.args.get('value'))
+        print(value)
         if request.args.get('user'):
             user = request.args.get('user')
     print("id, value", id, value)
@@ -522,7 +513,7 @@ def recommend_items(user_id, user_item_matrix, user_similarity_df, count = 10):
     return recommendations
 
 #Made to add all the base videos into movies collection. Should only be run once
-@app.route('/api/add_movies', methods=['GET'])
+@app.route('/add_movies', methods=['GET'])
 def add_movies_to_db():
     video_files = "static/videos/m2.json"
     videos = 0
@@ -532,9 +523,9 @@ def add_movies_to_db():
     for video in videos.items():
         print(video)
         movie = {
-            "id": video[0].replace(".mp4", ""),
+            "id": get_next_id(),
             "description": video[1],
-            "title": video[0].split('-')[0],
+            "title": video[0].replace(".mp4", ""),
             "processed": "complete"
         }
         try:
@@ -562,7 +553,7 @@ def upload_video():
     #save movie to database
     movie_id = os.path.splitext(mp4_file.filename)[0]
     movie = {
-            "id": movie_id,
+            "id": get_next_id(),
             "description": title,
             "title": title,
             "processed": "processing"
@@ -652,7 +643,7 @@ def update_watched_videos():
     
     # Update the user's watched list in the database
     db.users.update_one({"username": session['username']}, {"$set": {"watched": watched}})
-    return jsonify({"viewed": val}), 200
+    return json.dumps({"status": "OK", "viewed": val})
 
 
 @app.route('/api/processing-status', methods=['GET'])
@@ -679,6 +670,44 @@ def processing_status():
         videos.append(video_data)
 
     return jsonify({"videos": videos, "status": "OK"}), 200
+
+#The base url. If logged in, goes to index.html, else it goes to rootlogin. If using POST, then it logs in with request.form information
+@app.route("/", methods=['POST', 'GET'])
+def hello_world():
+    if 'username' in session:
+        videos = recommend_videos()
+        # video_dict = {video['id']: video['description'] for video in videos}
+        # print(videos, len(videos))
+        # print(video_dict, len(video_dict))
+        return render_template('index.html', videos=videos)
+    else:
+        if request.method == 'POST':
+        # data = request.json
+        # username = data.get('username')  # Get 'username' from JSON
+        # password = data.get('password')  # Get 'email' from JSON
+            username = request.form.get('username')
+            password = request.form.get('password')
+            
+            user = users.find_one({'username': username})
+            print("login")
+            if user is None:
+                print(username)
+                return ret_json(1, "User not created")
+            if user['disabled']:
+                print("disable", user)
+                return ret_json(1, "User not yet verified.")
+            
+            print("logged in" , user)
+
+            # Replace with your user validation logic
+            if user['username'] == username and user['password'] == password:
+                session['username'] = username
+                videos = recommend_videos()
+                return render_template('index.html', videos=videos)
+            else:
+                return ret_json(1, "Wrong username or password. Try a different one")
+        else:
+            return render_template('rootlogin.html')
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

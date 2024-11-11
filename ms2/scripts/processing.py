@@ -35,7 +35,7 @@ def extract_thumbnail(video_path, thumbnail_path):
 
 print("Thumbnails generated for all videos.")
 
-def convert_video_ids_to_sequence():
+def get_new_ids_json():
     #converts video ids to sequential id and stores it in new_ids.json
     video_files = "../python/static/videos/m2.json"
     with open(video_files, 'r') as file:
@@ -46,13 +46,14 @@ def convert_video_ids_to_sequence():
     new_ids = {}
     print(video_ids)
     for i in range(len(video_ids)):
-        new_ids[video_ids[i]] = i+1
+        new_ids[i+1] = video_ids[i]#reverse this to convert back and forth the filenames
     with open("../python/static/videos/new_ids.json", 'w') as file:
         json.dump(new_ids, file)
 
-
+def convert_video_ids_to_sequence():
+    get_new_ids_json()
     #actual converts video names to sequential id
-    source_folder = "../python/static/padded_videos"
+    source_folder = "../python/static/thumbnails"
     # destination_folder = "../python/static/padded_videos"
     new_ids_file = "../python/static/videos/new_ids.json"
     with open(new_ids_file, 'r') as file:
@@ -62,7 +63,7 @@ def convert_video_ids_to_sequence():
     # print(new_ids)
     for video in source_videos:
         # Get the ID part from the filename by splitting at the first '-'
-        file_id = video.split('fps')[0]+"fps"
+        file_id = video.split('.')[0]
         
         # Check if this ID exists in the dictionary
         if file_id in new_ids:
@@ -76,5 +77,5 @@ def convert_video_ids_to_sequence():
             # Rename the file
             os.rename(old_filepath, new_filepath)
             print(f'Renamed: {file_id} -> {new_filename}')
-
+# convert_video_ids_to_sequence()
 # print("done with everything")

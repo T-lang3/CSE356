@@ -15,8 +15,8 @@
         {% for video in videos %}
         <li>
             
-            <a href="{{ url_for('serve_video', id=video['id']) }}">
-                <img src="{{ url_for('static', filename='thumbnails/' ~ video['id'] ~ '.jpg') }}" alt="{{ video['description'] }}">
+            <a href="{{ url_for('serve_video', id=video['id']) ~ '.mpd' }}">
+                <img src="{{ url_for('get_thumbnail', id=video['id'] ~ '.jpg') }}" alt="{{ video['description'] }}">
             </a>
             <p>{{ video['description'] }}</p>
         </li>

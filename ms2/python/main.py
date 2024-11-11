@@ -79,6 +79,7 @@ def generate_verification_key():
 #sends the media. Used when player.html asks for a file
 @app.route("/media/<path:filename>")
 def serve_media(filename):
+    print("hello")
     media_dir = "/root/CSE356/ms1/media/"
     filename = filename.lstrip("media/")
     return send_file(os.path.join(media_dir, filename), as_attachment=True)
@@ -523,7 +524,7 @@ def add_movies_to_db():
     for video in videos.items():
         print(video)
         movie = {
-            "id": get_next_id(),
+            "id": video[0].split(".")[0],
             "description": video[1],
             "title": video[0].replace(".mp4", ""),
             "processed": "complete"
@@ -551,11 +552,12 @@ def upload_video():
         return jsonify({"error": True, "message": "Missing fields", "status": "ERROR"}), 400
 
     #save movie to database
-    movie_id = os.path.splitext(mp4_file.filename)[0]
+    movie_id = get_next_id()
     movie = {
-            "id": get_next_id(),
+            "id": movie_id,
             "description": title,
             "title": title,
+            "author": author,
             "processed": "processing"
         }
     try:

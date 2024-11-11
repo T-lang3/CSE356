@@ -3,15 +3,14 @@ from flask import Flask, render_template, request, jsonify, url_for, flash, redi
 from flask_pymongo import PyMongo
 import os, smtplib
 from email.message import EmailMessage
-from surprise import Dataset, Reader, KNNBasic, SVD, accuracy
 import pandas as pd
-from surprise.model_selection import train_test_split
 from sklearn.metrics.pairwise import cosine_similarity
 import subprocess
 from redis import Redis
 from rq import Queue
 from werkzeug.utils import secure_filename
 from video_processing import process_video
+import random
 
 
 app = Flask(__name__)
@@ -30,11 +29,12 @@ feedbacks = db.feedbacks
 movies = db.movies
 
 #dummmy account
-db.users.insert_one({
-  'username': "sdf1",
-  'password': "",
-  'email': "user@example.com"
-})
+# db.users.insert_one({
+#   'username': "sdf",
+#   'password': "",
+#   'email': "user@example.com",
+#   'disabled': False
+# })
 
 def is_authenticated():
     if 'username' in session:
@@ -315,61 +315,110 @@ def get_session():
 #sends a json of recommended videos. Gets all the feedback from the feedback collection which has {user_id, post_id, value}. Creates a sparse table and runs
 #cosine_similarity to find similar users. Based on that, it finds videos that other users like.
 #I still need to modify it so it recommends videos the user hasn't watched and then random videos.
+#if there are recommended videos that haven't been watched, recommend those, then recommend videos that haven't been watched, then random videos
+#modify so that the same video can't pop up
 @app.route('/api/videos', methods=['POST', 'GET'])
 def videos():
-    count = 0
+    count = 10
     if request.method == 'POST':
         data = request.json
         count = data.get('count')  # Get 'username' from JSON
     else:
-        count = 10
+        if request.args.get('count'):
+            count = int(request.args.get('count'))
+    print("count", count)
     f = feedbacks.find()
-    data = list(f)
-    df = pd.DataFrame(data)
+    v = []#list of videos to recommend
+    user = session['username']
+    videos = list(movies.find())
+    not_recommended = []
+    if feedbacks.count_documents({}) != 0 and feedbacks.count_documents({"user_id": user}):#There is feedback to decide what to train and user has done recommendations before
+        data = list(f)
+        df = pd.DataFrame(data)
 
-    # Optionally, you may want to ensure the columns are named properly
-    df = df[['user_id', 'post_id', 'value']]  # Select relevant columns
+        # Optionally, you may want to ensure the columns are named properly
+        df = df[['user_id', 'post_id', 'value']]  # Select relevant columns
+        user_item_matrix = df.pivot_table(index='user_id', columns='post_id', values='value', fill_value=0)
+        user_similarity = cosine_similarity(user_item_matrix)
+        # Step 5: Convert similarity matrix to DataFrame for better readability
 
-    user_item_matrix = df.pivot_table(index='user_id', columns='post_id', values='value', fill_value=0)
-    
-    user_similarity = cosine_similarity(user_item_matrix)
-
-    # Step 5: Convert similarity matrix to DataFrame for better readability
-    user_similarity_df = pd.DataFrame(user_similarity, index=user_item_matrix.index, columns=user_item_matrix.index)
-    recommended_items = recommend_items(session['username'], user_item_matrix, user_similarity_df, count)
-    print(recommended_items)
-    v = []
-    for video, _ in recommended_items:
-        temp = {
-            "id": video.replace(".mp4", ""),
-            "description": video,
-            "title": video.split('-')[0],
-            "watched": True,
-            "liked": True,
-            "likevalues": 3
-        }
-        # print(temp)
-        v.append(temp)
+        user_similarity_df = pd.DataFrame(user_similarity, index=user_item_matrix.index, columns=user_item_matrix.index)
+        recommended_items = recommend_items(user, user_item_matrix, user_similarity_df, count)
+        id_list = [id for id,_ in recommended_items]
+        print(id_list)
+        not_recommended = list(movies.find({'id': {'$nin': id_list}}))#list of videos that are not recommended. Used in recommend_watched and random
+        recommended = list(movies.find({'id': {'$in': id_list}}))#list of videos that are are recommended.
+        for video in recommended:#video is post_id so I will need to first find the movie in movies collection to get the actual description
+            temp = {
+                "id": video.get("id"),
+                "description": video.get("description"),
+                "title": video.get("title"),
+                "watched": False,
+                "liked": False, #should be false because the user has not watched it before
+                "likevalues": feedbacks.count_documents({"post_id": video.get("id"), "value": "1"})
+            }
+            # print(temp)
+            v.append(temp)
+    left = count - len(v)
+    if left <= 0:
+        return v
+    if left > 0:
+        recommend_watched(v, user, not_recommended, left)
+    left = count - len(v)
+    if left > 0:
+        recommend_random(v, videos, left)
+    print("length of recommendations:", len(v))
     return json.dumps({"videos": v})
-    # video_files = "static/videos/m2.json"
-    # with open(video_files, 'r') as file:
-    #     data = json.load(file)
-    # videos = dict(list(data.items())[0:count])
-    # print(videos)
-    # v = []
-    # for video in videos.items():
-    #     print(video[0])
-    #     temp = {
-    #         "id": video[0].replace(".mp4", ""),
-    #         "metadata": {
-    #             "description": video[1],
-    #             "title": video[0].split('-')[0]
-    #         }
-    #     }
-    #     print(temp)
-    #     v.append(temp)
-    # return json.dumps({"status": "OK", "videos": v})
+
+def recommend_watched(v, user, videos, left):#get watched, get all videos, get the difference between them and return random ones in those
+    try:
+        watched = users.find_one({"username": user}).get("watched", [])
+    except:
+        return ret_json(1, "User not found")
+    not_watch = [video for video in videos if video["id"] not in watched]#get all documents whose ids are not in the watched list
+
+    if len(not_watch) > left:#If there are more not watched videos than count, we have to randomly choose which ones to recommend
+        not_watch = random.choices(not_watch, k = left)
+    print("length of not watched and not recommended", len(not_watch))
+    while not_watch:
+        video = not_watch.pop(0)
+        temp = {
+            "id": video.get("id"),
+            "description": video.get("description"),
+            "title": video.get("title"),
+            "watched": False,
+            "liked": False, #should be false because the user has not watched it before
+            "likevalues": feedbacks.count_documents({"post_id": video.get("id"), "value": "1"})
+        }
+        v.append(temp)
         
+def recommend_random(v, videos, left):
+    while left:
+        video = random.choice(videos)
+        temp = {
+            "id": video.get("id"),
+            "description": video.get("description"),
+            "title": video.get("title"),
+            "watched": False,
+            "liked": False, #should be false because the user has not watched it before
+            "likevalues": feedbacks.count_documents({"post_id": video.get("id"), "value": "1"})
+        }
+        v.append(temp)
+        left-=1
+    # if len(videos) > left:
+    #     videos = random.choices(videos, k = left)
+    # print("length of random videos", len(videos))
+    # while videos:
+    #     video = videos.pop(0)
+    #     temp = {
+    #         "id": video.get("id"),
+    #         "description": video.get("description"),
+    #         "title": video.get("title"),
+    #         "watched": False,
+    #         "liked": False, #should be false because the user has not watched it before
+    #         "likevalues": feedbacks.count_documents({"post_id": video.get("id"), "value": "1"})
+    #     }
+    #     v.append(temp)
 
 @app.route('/api/thumbnail/<id>', methods=['GET'])
 def get_thumbnail(id):
@@ -418,6 +467,8 @@ def like():
         data = request.json
         id = data.get('id')
         value = data.get('value')
+        if data.get('user'):
+            user = data.get
         if value == True:
             value = 1
         elif value == False:
@@ -426,11 +477,14 @@ def like():
             value = 0
     else:
         id = request.args.get('id')
-        value = request.args.get('value')
-        user = request.args.get('user')
+        value = int(request.args.get('value'))
+        if request.args.get('user'):
+            user = request.args.get('user')
+    print("id, value", id, value)
 
     current_feedback = feedbacks.find_one({"user_id": user, "post_id": id})
     
+    print(type(value))
     if current_feedback and current_feedback['value'] == value:
         return ret_json(1, "Value is the same as before")   
     if current_feedback:
@@ -440,8 +494,8 @@ def like():
         )
     else:
         feedbacks.insert_one({"user_id": user, "post_id": id, "value": value})
-    like_count = feedbacks.count_documents({"post_id": id, "value": "1"})
-    return {"likes": like_count}
+    like_count = feedbacks.count_documents({"post_id": id, "value": 1})
+    return json.dumps({"status": "OK", "likes": like_count})
 
 #The reccommendation system. It was described in /api/videos
 def recommend_items(user_id, user_item_matrix, user_similarity_df, count = 10):
@@ -518,7 +572,8 @@ def upload_video():
     except Exception as e:
         return jsonify({"error": True, "message": f"An error occurred adding movie to database: {str(e)}", "status": "ERROR"}), 500
 
-    user = db.users.find_one({"username": session['username']})
+    user = users.find_one({"username": session['username']})
+    print(user, session['username'], list(users.find()))
     uploaded = user.get("uploaded", [])
     uploaded.append({
         "id": movie_id,

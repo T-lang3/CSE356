@@ -1,5 +1,5 @@
 # Use official Python image
-FROM python:3.8
+FROM python:latest
 
 # Set working directory
 WORKDIR /app
@@ -11,12 +11,14 @@ WORKDIR /app
 
 RUN pip install --upgrade pip
 #commented the 2 pip out jack
-#RUN pip install flask flask-pymongo 
-#RUN pip install numpy pandas 
+RUN pip install flask flask-pymongo 
+RUN pip install numpy pandas 
+RUN pip install redis rq
+# RUN apt-get install -y ffmpeg
 
 
-#RUN pip install ffmpeg-python
-# RUN pip install cython scikit-learn
+RUN pip install ffmpeg-python
+RUN pip install cython scikit-learn
 # RUN pip install git+https://github.com/NicolasHug/Surprise.git
 # RUN pip install PyGorse
 

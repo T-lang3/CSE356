@@ -711,5 +711,14 @@ def hello_world():
         else:
             return render_template('rootlogin.html')
 
+
+@app.route('/list_videos')
+def list_videos():
+    media_folder = os.path.join(os.path.dirname(__file__), 'media')
+
+    video_files = [f for f in os.listdir(media_folder) if f.endswith('.mpd')]
+    print("Videofile1: "+str(video_files))
+    return jsonify(video_files)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

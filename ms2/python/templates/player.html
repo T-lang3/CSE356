@@ -31,9 +31,24 @@
             margin-top: 500px; /* Give space for the fixed video player */
             top: 100px;
         }
+        #preloader {
+            display: none; /* Hidden by default */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent background */
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            line-height: 100vh;
+            z-index: 20; /* Above the video player */
+        }
     </style>
 </head>
 <body>
+    <div id="preloader">Loading next video...</div>
     <video id="videoPlayer" controls></video>
     <div id="content">
         <div id="playPauseBtn" onclick="togglePlayPause()">Pause</div>
@@ -62,6 +77,7 @@
         var new_id = id_passed.replace('.mp4', '.mpd');
         var url = `/media/${new_id}`;
 
+        
         /*
         var videoUrls = [
             '/media/5904599-hd_1080_1920_30fps.mpd',
@@ -69,12 +85,13 @@
             '/media/3960164-uhd_2160_4096_25fps.mpd',
             '/media/4764773-uhd_2160_3840_30fps.mpd',
         ];*/
-
+        var preloader = document.getElementById('preloader');
         var video = document.querySelector('#videoPlayer');
         var player = dashjs.MediaPlayer().create();
         player.initialize(video, url, true);
 
         player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
+            preloader.style.display = 'none';
             populateResolutions();
         });
 
@@ -157,6 +174,7 @@
             // window.location.href = newUrl;
         }*/
         async function loadRandomVideo() {
+            preloader.style.display = 'block';
             try {
                 const response = await fetch('/list_videos');
                 const videoFiles = await response.json();
@@ -176,10 +194,11 @@
                     const randomIndex = Math.floor(Math.random() * videoFiles.length);
                     const randomVideoUrl = `/media/${videoFiles[randomIndex]}`;
                     console.error('No .mpd videos found in the /media folder');
-                    console.error("test:"+randomVideoUrl);
+                    preloader.style.display = 'none';
                 }
             } catch (error) {
                 console.error('Error fetching video list:', error);
+                preloader.style.display = 'none';
             }
         }
         // let canScroll = false;

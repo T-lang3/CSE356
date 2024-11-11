@@ -62,38 +62,13 @@
         var new_id = id_passed.replace('.mp4', '.mpd');
         var url = `/media/${new_id}`;
 
+        /*
         var videoUrls = [
             '/media/5904599-hd_1080_1920_30fps.mpd',
             '/media/7170778-uhd_4096_2160_25fps.mpd',
             '/media/3960164-uhd_2160_4096_25fps.mpd',
             '/media/4764773-uhd_2160_3840_30fps.mpd',
-            '/media/4046200-hd_1920_1080_25fps.mpd',
-            '/media/4993317-hd_1920_1080_30fps.mpd',
-            '/media/7966582-uhd_3840_2160_25fps.mpd',
-            '/media/6423982-uhd_2160_3840_29fps.mpd',
-            '/media/6157331-hd_1920_1080_30fps.mpd',
-            '/media/8828853-uhd_2160_3840_30fps.mpd',
-            '/media/1874710-hd_2048_1024_30fps.mpd',
-            '/media/6093239-uhd_3840_2160_24fps.mpd',
-            '/media/13801273-uhd_2160_3840_24fps.mpd',
-            '/media/2018959-hd_1920_1080_30fps.mpd',
-            '/media/1580117-uhd_3840_2160_30fps.mpd',
-            '/media/10040768-hd_1920_1080_24fps.mpd',
-            '/media/7092080-hd_1920_1080_30fps.mpd',
-            '/media/4008176-uhd_2160_4096_25fps.mpd',
-            '/media/4081736-uhd_3840_2160_24fps.mpd',
-            '/media/7196106-uhd_3840_2160_25fps.mpd',
-            '/media/8721927-uhd_2160_4096_25fps.mpd',
-            '/media/10727436-hd_1920_1080_24fps.mpd',
-            '/media/6700174-uhd_2160_3840_25fps.mpd',
-            '/media/5992350-hd_1920_1080_30fps.mpd',
-            '/media/7037850-uhd_3840_2160_30fps.mpd',
-            '/media/6379426-uhd_3840_2160_24fps.mpd',
-            '/media/2892038-uhd_3840_2160_30fps.mpd',
-            '/media/6157979-hd_1920_1080_30fps.mpd',
-            '/media/5381274-uhd_4096_2160_30fps.mpd',
-            '/media/7505754-uhd_2160_3840_30fps.mpd'
-        ];
+        ];*/
 
         var video = document.querySelector('#videoPlayer');
         var player = dashjs.MediaPlayer().create();
@@ -165,6 +140,8 @@
         }
 
         historystack = [];
+        
+        /*
         function loadRandomVideo() {
             var randomIndex = Math.floor(Math.random() * videoUrls.length);
             var randomVideoUrl = videoUrls[randomIndex];
@@ -178,6 +155,32 @@
             player.attachSource(randomVideoUrl);
             player.play();
             // window.location.href = newUrl;
+        }*/
+        async function loadRandomVideo() {
+            try {
+                const response = await fetch('/list_videos');
+                const videoFiles = await response.json();
+                
+                if (videoFiles.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * videoFiles.length);
+                    const randomVideoUrl = `/media/${videoFiles[randomIndex]}`;
+                    var newUrl = `/play/${randomVideoUrl.replace('/media/', '')}`;
+                    var currentUrl = window.location.href; // Get the current URL
+                    var filename = currentUrl.split('/').pop(); // Extract the last part of the URL
+                    var pushfile = "/media/" + (filename);
+                    historystack.push(pushfile);
+                    window.history.replaceState({ path: newUrl }, '', newUrl);
+                    player.attachSource(randomVideoUrl);
+                    player.play();
+                } else {
+                    const randomIndex = Math.floor(Math.random() * videoFiles.length);
+                    const randomVideoUrl = `/media/${videoFiles[randomIndex]}`;
+                    console.error('No .mpd videos found in the /media folder');
+                    console.error("test:"+randomVideoUrl);
+                }
+            } catch (error) {
+                console.error('Error fetching video list:', error);
+            }
         }
         // let canScroll = false;
         // setTimeout(() => {

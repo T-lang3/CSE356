@@ -5,7 +5,6 @@ services:
     # ports:
     #   - 80:80
     volumes:
-      - ./python:/var/www/html/
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
       - ./python/media:/media
     depends_on:

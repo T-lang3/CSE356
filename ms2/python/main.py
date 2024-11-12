@@ -538,7 +538,7 @@ def add_movies_to_db():
 
 
 redis = Redis(host='localhost', port=6379, db=0)  
-q = Queue(connection=redis)
+q = Queue(connection=redis, default_timeout=900)
 print(redis.ping())
 UPLOAD_FOLDER = './static/upload'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)

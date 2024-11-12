@@ -7,8 +7,7 @@ from flask import Flask, render_template, request, jsonify, url_for, flash, redi
 from flask_pymongo import PyMongo
 app = Flask(__name__)
 def process_video(file_path, output_dir, movie_id):
-    #from main import db
-    print("entered the function2------------------------------------------------------------------")
+    print("entered the function0------------------------------------------------------------------")
     filename = os.path.splitext(os.path.basename(file_path))[0]
     #output_dir = "./media"
 
@@ -17,6 +16,8 @@ def process_video(file_path, output_dir, movie_id):
     print("stored path: "+f"{output_dir}/{filename}")       #'
     ffmpeg_command = [
         "ffmpeg", "-i", file_path,
+        "-preset", "veryfast", 
+        "-threads", "4", 
         "-map", "0:v", "-b:v:0", "254k", "-s:v:0", "320x180",
         "-map", "0:v", "-b:v:1", "507k", "-s:v:1", "320x180",
         "-map", "0:v", "-b:v:2", "759k", "-s:v:2", "480x270",

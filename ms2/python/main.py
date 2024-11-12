@@ -581,7 +581,7 @@ def upload_video():
     uploaded.append({
         "id": movie_id,
         "title": title,
-        "processed": "processing"
+        "processed": "complete"
     })
     db.users.update_one({"username": session['username']}, {"$set": {"uploaded": uploaded}})
     
@@ -596,8 +596,20 @@ def upload_video():
     print("inputed value: '"+str(file_path)+"'")
     print("movie_id: '"+str(movie_id)+"'")
     # Resize and process the video using ffmpeg
+
+    #changing ../media to ./media writes to the media folder in python
     output_dir = "./media"
-    q.enqueue(process_video, file_path, output_dir, movie_id)
+    #q.enqueue(process_video, file_path, output_dir, movie_id)
+
+
+    command = ['./convert.sh', str(file_path), output_dir]
+    try:
+        result = subprocess.run(command, check=True, text=True, capture_output=True)
+        print("Script executed successfully")
+    except subprocess.CalledProcessError as e:
+        print(f"Error during execution: {e}")
+
+    print("ruinn")
     '''
     os.makedirs(output_dir, exist_ok=True)
     filename = os.path.splitext(mp4_file.filename)[0]  # Get filename without extension

@@ -7,7 +7,7 @@ services:
     volumes:
       - ./python:/var/www/html/
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
-      - ./media:/media
+      - ./python/media:/media
     depends_on:
       - python
     network_mode: host
@@ -34,7 +34,6 @@ services:
       - postfix
     volumes:
       - ./python:/app
-      - ./media:/app/media
     
     #comment out python and uncomment tail
     # entrypoint: ["python", "main.py"]

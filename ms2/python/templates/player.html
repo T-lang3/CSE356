@@ -188,17 +188,35 @@
             });
         }
 
+        /*
+        console.log("starts here");
+        const response = fetch('/api/videos?count=20');  
+        const videoFiles = response.json();
+        videos = videoFiles.videos;
+        let ids = videos.map(item => item.id);
+        console.log("ids: "+ids);*/
+        
         async function preloadNextVideos() {
             try {
-                //const response = await fetch('/list_videos');
-                const response = await ( await fetch('/api/videos', 20)).json()
-                console.log("respose: "+response);
+                
+                const response4 = await fetch('/api/videos?count=30');  
+                let returnfile = await response4.json();
+                //videos = returnfile.videos;
+                //let ids = videos.map(item => item.id);
+                //const videoFiles = ids.map(item => item+".mpd");
+                
+
+                const response = await fetch('/list_videos');
                 const videoFiles = await response.json();
+                
+                //console.log("files: "+videoFiles);
+
                 if (videoFiles.length > 0) {
                     videoQueue = [];
                     for (let i = 0; i < totalPlayers; i++) {
                         const randomIndex = Math.floor(Math.random() * videoFiles.length);
                         const videoUrl = `/media/${videoFiles[randomIndex]}`;
+                        //console.log("video urls: "+videoUrl);
                         videoQueue.push(videoUrl);
                     }
 

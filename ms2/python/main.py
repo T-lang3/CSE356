@@ -30,12 +30,12 @@ movies = db.movies
 counter = db.counter
 
 #dummmy account
-# db.users.insert_one({
-#   'username': "sdf",
-#   'password': "",
-#   'email': "user@example.com",
-#   'disabled': False
-# })
+db.users.insert_one({
+   'username': "sdf",
+   'password': "",
+   'email': "user@example.com",
+   'disabled': False
+})
 
 def is_authenticated():
     if 'username' in session:
@@ -538,8 +538,8 @@ def add_movies_to_db():
 
 redis = Redis(host='localhost', port=6379, db=0)  
 q = Queue(connection=redis)
-
-UPLOAD_FOLDER = '/python/static/upload'
+print(redis.ping())
+UPLOAD_FOLDER = './static/upload'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/api/upload', methods=['POST'])
@@ -591,9 +591,11 @@ def upload_video():
     except Exception as e:
         return jsonify({"error": True, "message": f"File save error: {str(e)}", "status": "ERROR"}), 500
 
-
+    print("the file: "+str(mp4_file.filename))
+    print("inputed value: '"+str(file_path)+"'")
+    print("movie_id: '"+str(movie_id)+"'")
     # Resize and process the video using ffmpeg
-    output_dir = "../media"
+    output_dir = "./media"
     q.enqueue(process_video, file_path, output_dir, movie_id)
     '''
     os.makedirs(output_dir, exist_ok=True)
@@ -627,7 +629,7 @@ def upload_video():
 
     return jsonify({"id": movie_id, "status": "processing"}), 202
 
-    
+
             
 @app.route('/upload', methods=['GET'])
 def upload_page():
@@ -728,6 +730,9 @@ def list_videos():
     video_files = [f for f in os.listdir(media_folder) if f.endswith('.mpd')]
     #print("Videofile1: "+str(video_files))
     return jsonify(video_files)
+
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -6,8 +6,8 @@ from email.message import EmailMessage
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 import subprocess
-from redis import Redis
-from rq import Queue
+#from redis import Redis
+#from rq import Queue
 from werkzeug.utils import secure_filename
 from video_processing import process_video
 import random
@@ -541,11 +541,11 @@ def add_movies_to_db():
     return ret_json(0, "Movie added")
 
 
-redis = Redis(host='localhost', port=6379, db=0)  
-q = Queue(connection=redis, default_timeout=900)
-print(redis.ping())
+#redis = Redis(host='localhost', port=6379, db=0)  
+#q = Queue(connection=redis, default_timeout=900)
+#print(redis.ping())
 UPLOAD_FOLDER = './static/upload'
-OUTPUT = './meddia'
+OUTPUT = './media'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT, exist_ok=True)
 
@@ -608,7 +608,7 @@ def upload_video():
     #q.enqueue(process_video, file_path, output_dir, movie_id)
 
 
-    command = ['./convert.sh', str(file_path), output_dir]
+    command = ['./convert.sh', file_path, output_dir]
     try:
         result = subprocess.run(command, check=True, text=True, capture_output=True)
         print("Script executed successfully")

@@ -56,7 +56,7 @@
     
     <!-- Predefined video players (30 in total) -->
     <div id = "video-container">
-        <!-- <video id="videoPlayer1" controls></video> -->
+        <!-- <video id="videoPlayer0" controls></video> -->
         <!-- <video id="videoPlayer2" controls></video>
         <video id="videoPlayer3" controls></video>
         <video id="videoPlayer4" controls></video>
@@ -101,11 +101,16 @@
     <script>
         //let preloader = document.getElementById('preloader');
         //let preloader2 = document.getElementById('preloader2');
+        var id_passed = "{{id}}";
+        var username = "{{ username }}";
+        var new_id = id_passed.replace('.mp4', '.mpd');
+        var url = `/media/${new_id}`;
+
         let players = [];
         let videos = [];
-        let videoQueue = [];
+        let videoQueue = [new_id];
         let currentPlayerIndex = 0; // Current active player
-        let totalPlayers = 0; // Fixed 30 players
+        let totalPlayers = 1; // Fixed 30 players
         let historystack = []; // Stack to track the history of videos
         let isScrolling = false;
 
@@ -117,10 +122,19 @@
             videos.push(videoElement);
         }
 
-        var id_passed = "{{id}}";
-        var username = "{{ username }}";
-        var new_id = id_passed.replace('.mp4', '.mpd');
-        var url = `/media/${new_id}`;
+
+        // Create a new video element
+        let video = document.createElement('video');
+        video.setAttribute('controls', ''); // Add controls to the video element
+        video.id = "videoPlayer0";
+        video.preload = "auto"; // Preload the video
+        video.style.display = 'block'; // Initially show video 1
+
+        const player = dashjs.MediaPlayer().create();
+        player.initialize(video, url, false); // Preload without autoplay
+        const videoContainer = document.getElementById('video-container');
+        videoContainer.appendChild(video);
+        console.log(videoContainer)
 
         // Initialize all players
         players.forEach((player, index) => {
@@ -257,6 +271,8 @@
                 preloadNextVideos();
                 currentPlayerIndex++;
                 loadNextVideo();
+                
+                console.log(currentPlayerIndex, totalPlayers)
             } else if (event.deltaY < 0) {
                 // Scroll up: Load the previous video
                 if (currentPlayerIndex > 0) {
@@ -296,12 +312,7 @@
             video.setAttribute('controls', ''); // Add controls to the video element
             video.id = "videoPlayer" + i;
             video.preload = "auto"; // Preload the video
-            if (i == 0){
-                video.style.display = 'block'; // Initially show video 1
-            }
-            else{
-                video.style.display = 'none'; // Initially hide the video
-            }
+            video.style.display = 'none'; // Initially hide the video
 
             const player = dashjs.MediaPlayer().create();
             player.initialize(video, src, false); // Preload without autoplay
@@ -322,13 +333,12 @@
             return videoFiles
         }
         async function preloadNextVideos() {
-            console.log(currentPlayerIndex, totalPlayers)
             if (currentPlayerIndex >= totalPlayers - 3){
                 totalPlayers+=10
                 videoFiles = await getNextVideos()
                 videoQueue = videoQueue.concat(videoFiles)
-                if (totalPlayers==10){
-                    i = currentPlayerIndex
+                if (totalPlayers==11){
+                    i = currentPlayerIndex+1
                 }
                 else{
                     i = currentPlayerIndex+2

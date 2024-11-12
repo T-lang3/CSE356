@@ -30,12 +30,12 @@ movies = db.movies
 counter = db.counter
 
 #dummmy account
-db.users.insert_one({
-   'username': "sdf",
-   'password': "",
-   'email': "user@example.com",
-   'disabled': False
-})
+# db.users.insert_one({
+#    'username': "sdf",
+#    'password': "",
+#    'email': "user@example.com",
+#    'disabled': False
+# })
 
 def is_authenticated():
     if 'username' in session:
@@ -273,6 +273,7 @@ def tlogin():
 @app.route('/api/logout', methods=['POST', 'GET'])
 def logout():
     session.clear()  # Remove username from session
+    print("logged out")
     return ret_json(0, "Logged out successfully.")
 
 @app.route('/api/check-auth', methods=['POST'])
@@ -309,7 +310,7 @@ def get_count_from_request():
 def videos(count=10):
     count = get_count_from_request()
     recommendations = recommend_videos(count)
-    return json.dumps({"videos": recommendations})
+    return json.dumps({"status": "OK", "videos": recommendations})
 
 def recommend_videos(count=10):
     print("count", count)
@@ -478,7 +479,9 @@ def like():
     
     print(type(value))
     if current_feedback and current_feedback['value'] == value:
-        return ret_json(1, "Value is the same as before")   
+        like_count = feedbacks.count_documents({"post_id": id, "value": 1})
+        print("same value as before for user", session['username'])
+        return json.dumps({"status": "ERROR", "likes": like_count, "error": True, "message":"same value as before"}) 
     if current_feedback:
         feedbacks.update_one(
             {"user_id": user, "post_id": id},
@@ -487,6 +490,7 @@ def like():
     else:
         feedbacks.insert_one({"user_id": user, "post_id": id, "value": value})
     like_count = feedbacks.count_documents({"post_id": id, "value": 1})
+    print("updated value")
     return json.dumps({"status": "OK", "likes": like_count})
 
 #The reccommendation system. It was described in /api/videos
@@ -541,7 +545,9 @@ redis = Redis(host='localhost', port=6379, db=0)
 q = Queue(connection=redis, default_timeout=900)
 print(redis.ping())
 UPLOAD_FOLDER = './static/upload'
+OUTPUT = './meddia'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT, exist_ok=True)
 
 @app.route('/api/upload', methods=['POST'])
 def upload_video():
@@ -596,8 +602,13 @@ def upload_video():
     print("inputed value: '"+str(file_path)+"'")
     print("movie_id: '"+str(movie_id)+"'")
     # Resize and process the video using ffmpeg
-    output_dir = "./media"
-    q.enqueue(process_video, file_path, output_dir, movie_id)
+    # output_dir = os.path.join(OUTPUT, secure_filename(mp4_file.filename))
+    # try:
+    #     mp4_file.save(file_path)
+    #     print("saved to output")
+    # except Exception as e:
+    #     return jsonify({"error": True, "message": f"File save error: {str(e)}", "status": "ERROR"}), 500
+    q.enqueue(process_video, file_path, OUTPUT, movie_id)
     '''
     os.makedirs(output_dir, exist_ok=True)
     filename = os.path.splitext(mp4_file.filename)[0]  # Get filename without extension
@@ -689,6 +700,7 @@ def processing_status():
 @app.route("/", methods=['POST', 'GET'])
 def hello_world():
     if 'username' in session:
+        print(session['username'])
         videos = recommend_videos()
         # video_dict = {video['id']: video['description'] for video in videos}
         # print(videos, len(videos))

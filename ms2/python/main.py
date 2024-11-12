@@ -527,6 +527,7 @@ def add_movies_to_db():
             "id": video[0].split(".")[0],
             "description": video[1],
             "title": video[0].replace(".mp4", ""),
+            "author": "base",
             "processed": "complete"
         }
         try:
@@ -537,9 +538,9 @@ def add_movies_to_db():
 
 
 redis = Redis(host='localhost', port=6379, db=0)  
-q = Queue(connection=redis)
+q = Queue(connection=redis, default_timeout=3600)
 
-UPLOAD_FOLDER = '/python/static/upload'
+UPLOAD_FOLDER = './static/upload'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/api/upload', methods=['POST'])
@@ -715,7 +716,6 @@ def hello_world():
 @app.route('/list_videos')
 def list_videos():
     media_folder = os.path.join(os.path.dirname(__file__), 'media')
-
     video_files = [f for f in os.listdir(media_folder) if f.endswith('.mpd')]
     print("Videofile1: "+str(video_files))
     return jsonify(video_files)

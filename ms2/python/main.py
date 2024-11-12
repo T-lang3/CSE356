@@ -565,8 +565,17 @@ def upload_video():
     except Exception as e:
         return jsonify({"error": True, "message": f"An error occurred adding movie to database: {str(e)}", "status": "ERROR"}), 500
 
-    user = users.find_one({"username": session['username']})
-    print(user, session['username'], list(users.find()))
+    
+    username = session['username']
+    #user = users.find_one({"username": session['username']})
+    user = db.users.find_one({"username": session['username']})
+
+    print("user: "+str(username))
+    print(user, session['username'])
+    
+    if user is None:
+        return jsonify({"error": True, "message": "User not found", "status": "ERROR"}), 404
+
     uploaded = user.get("uploaded", [])
     uploaded.append({
         "id": movie_id,
@@ -717,7 +726,7 @@ def list_videos():
     media_folder = os.path.join(os.path.dirname(__file__), 'media')
 
     video_files = [f for f in os.listdir(media_folder) if f.endswith('.mpd')]
-    print("Videofile1: "+str(video_files))
+    #print("Videofile1: "+str(video_files))
     return jsonify(video_files)
 
 if __name__ == "__main__":

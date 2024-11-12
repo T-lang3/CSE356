@@ -7,49 +7,85 @@
     <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
     <style>
         body {
-            height: 140vh; /* Use the full height of the viewport */
+            height: 140vh;
             margin: 0;
-            overflow-y: scroll; /* Enable vertical scrolling on the body */
+            overflow-y: scroll;
             display: flex;
             flex-direction: column;
-            align-items: center; /* Center items horizontally */
-            justify-content: center; /* Center items vertically */
+            align-items: center;
+            justify-content: center;
         }
-        #videoPlayer {
+        video {
             max-width: 640px;
-            max-height: 360px; /* Set a maximum height for the video */
-            position: fixed; /* Make the video fixed */
-            top: 40%; /* Center vertically */
-            left: 50%; /* Center horizontally */
-            transform: translate(-50%, -50%); /* Adjust for the center position */
-            z-index: 10; /* Ensure it stays above other content */
+            max-height: 360px;
+            position: fixed;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            display: none; /* Hide all players initially */
         }
         #content {
-            height: 1500px; /* Set a larger height to allow scrolling */
-            padding: 20px; /* Add some padding for aesthetics */
-            text-align: center; /* Center align the text */
-            margin-top: 500px; /* Give space for the fixed video player */
-            top: 100px;
+            height: 1500px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 500px;
         }
-        #preloader {
-            display: none; /* Hidden by default */
+        #preloader, #preloader2 {
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent background */
+            background-color: rgba(0, 0, 0, 0.8);
             color: white;
             font-size: 24px;
             text-align: center;
             line-height: 100vh;
-            z-index: 20; /* Above the video player */
+            z-index: 20;
+        }
+        #playPauseBtn{
+            margin-top: 300px;
         }
     </style>
 </head>
 <body>
-    <div id="preloader">Loading next video...</div>
-    <video id="videoPlayer" controls></video>
+    <!--<div id="preloader">Loading next video...</div>
+    <div id="preloader2">Preloading video after next...</div>-->
+    
+    <!-- Predefined video players (30 in total) -->
+    <video id="videoPlayer1" controls></video>
+    <video id="videoPlayer2" controls></video>
+    <video id="videoPlayer3" controls></video>
+    <video id="videoPlayer4" controls></video>
+    <video id="videoPlayer5" controls></video>
+    <video id="videoPlayer6" controls></video>
+    <video id="videoPlayer7" controls></video>
+    <video id="videoPlayer8" controls></video>
+    <video id="videoPlayer9" controls></video>
+    <video id="videoPlayer10" controls></video>
+    <video id="videoPlayer11" controls></video>
+    <video id="videoPlayer12" controls></video>
+    <video id="videoPlayer13" controls></video>
+    <video id="videoPlayer14" controls></video>
+    <video id="videoPlayer15" controls></video>
+    <video id="videoPlayer16" controls></video>
+    <video id="videoPlayer17" controls></video>
+    <video id="videoPlayer18" controls></video>
+    <video id="videoPlayer19" controls></video>
+    <video id="videoPlayer20" controls></video>
+    <video id="videoPlayer21" controls></video>
+    <video id="videoPlayer22" controls></video>
+    <video id="videoPlayer23" controls></video>
+    <video id="videoPlayer24" controls></video>
+    <video id="videoPlayer25" controls></video>
+    <video id="videoPlayer26" controls></video>
+    <video id="videoPlayer27" controls></video>
+    <video id="videoPlayer28" controls></video>
+    <video id="videoPlayer29" controls></video>
+    <video id="videoPlayer30" controls></video>
+
     <div id="content">
         <div id="playPauseBtn" onclick="togglePlayPause()">Pause</div>
         <button name="like" onclick="like(true)">like</button>
@@ -61,44 +97,42 @@
     </div>
 
     <script>
+        //let preloader = document.getElementById('preloader');
+        //let preloader2 = document.getElementById('preloader2');
+        let players = [];
+        let videos = [];
+        let videoQueue = [];
+        let currentPlayerIndex = 0; // Current active player
+        const totalPlayers = 30; // Fixed 30 players
+        let historystack = []; // Stack to track the history of videos
 
-        let lastScrollTop = 0;
-        // window.addEventListener('load', function() {
-        //     // Set the scroll position to the middle of the document's height
-        //     removeScrollListener();
-        //     console.log("removed scroll listener");
-        //     window.scrollTo(0, 45);
-        //     addScrollListener();
-        //     console.log("added scroll listener");
-        //     console.log(document.body.scrollHeight/2);
-        // });
+        // Collect all the video players into an array
+        for (let i = 1; i <= totalPlayers; i++) {
+            let videoElement = document.getElementById(`videoPlayer${i}`);
+            let player = dashjs.MediaPlayer().create();
+            players.push(player);
+            videos.push(videoElement);
+        }
+
         var id_passed = "{{id}}";
         var username = "{{ username }}";
         var new_id = id_passed.replace('.mp4', '.mpd');
         var url = `/media/${new_id}`;
 
-        
-        /*
-        var videoUrls = [
-            '/media/5904599-hd_1080_1920_30fps.mpd',
-            '/media/7170778-uhd_4096_2160_25fps.mpd',
-            '/media/3960164-uhd_2160_4096_25fps.mpd',
-            '/media/4764773-uhd_2160_3840_30fps.mpd',
-        ];*/
-        var preloader = document.getElementById('preloader');
-        var video = document.querySelector('#videoPlayer');
-        var player = dashjs.MediaPlayer().create();
-        player.initialize(video, url, true);
-
-        player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
-            preloader.style.display = 'none';
-            populateResolutions();
+        // Initialize all players
+        players.forEach((player, index) => {
+            player.initialize(videos[index], url, true);
+            player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
+                if (index === 0) {
+                    //preloader.style.display = 'none';
+                    populateResolutions();
+                }
+            });
         });
 
         function populateResolutions() {
-            var resolutions = player.getBitrateInfoListFor('video');
+            var resolutions = players[0].getBitrateInfoListFor('video');
             var resolutionSelect = document.getElementById('resolutionSelect');
-
             resolutions.forEach(function(resolution, index) {
                 var option = document.createElement('option');
                 option.value = index;
@@ -110,28 +144,30 @@
         function changeResolution() {
             var resolutionSelect = document.getElementById('resolutionSelect');
             var selectedIndex = resolutionSelect.value;
-
             if (selectedIndex) {
-                player.setQualityFor('video', parseInt(selectedIndex, 10));
-                player.play();
+                players[currentPlayerIndex].setQualityFor('video', parseInt(selectedIndex, 10));
+                players[currentPlayerIndex].play();
             } else {
-                player.setAutoSwitchQualityFor('video', true);
+                players[currentPlayerIndex].setAutoSwitchQualityFor('video', true);
             }
         }
 
         function togglePlayPause() {
-            if (video.paused) {
-                video.play();
+            const currentVideo = videos[currentPlayerIndex];
+            if (currentVideo.paused) {
+                //videos[currentPlayerIndex].play();
+                currentVideo.play();
                 document.getElementById("playPauseBtn").innerHTML = "Pause";
             } else {
-                video.pause();
+                //videos[currentPlayerIndex].pause();
+                currentVideo.pause();
                 document.getElementById("playPauseBtn").innerHTML = "Play";
             }
         }
+
         function like(val) {
-            var value = val; // Assuming you want to like the post; set this to `false` for dislike
-            var currentUrl = window.location.href; // Get the current URL
-            var id = currentUrl.split('/').pop(); // Extract the last part of the URL
+            var currentUrl = window.location.href;
+            var id = currentUrl.split('/').pop();
             fetch("{{ url_for('like') }}", {
                 method: 'POST',
                 headers: {
@@ -139,121 +175,107 @@
                 },
                 body: JSON.stringify({
                     'id': id,
-                    'value': value,
+                    'value': val,
                     'user': username
                 }),
             })
             .then(response => response.json())
             .then(data => {
-                // if (data.status === "OK") {
-                //     alert('Post liked! Total likes: ' + data.likes);
-                // } else {
-                //     alert('Error: ' + data.message);
-                // }
+                // Handle response data if needed
             })
             .catch((error) => {
                 console.error('Error:', error);
             });
         }
 
-        historystack = [];
-        
-        /*
-        function loadRandomVideo() {
-            var randomIndex = Math.floor(Math.random() * videoUrls.length);
-            var randomVideoUrl = videoUrls[randomIndex];
-            var newUrl = `/play/${randomVideoUrl.replace('/media/', '')}`;
-            var currentUrl = window.location.href; // Get the current URL
-            var filename = currentUrl.split('/').pop(); // Extract the last part of the URL
-            var pushfile = "/media/" + (filename);
-            // console.log("pushfile: ", pushfile);
-            historystack.push(pushfile);
-            window.history.replaceState({ path: newUrl }, '', newUrl);
-            player.attachSource(randomVideoUrl);
-            player.play();
-            // window.location.href = newUrl;
-        }*/
-        async function loadRandomVideo() {
-            preloader.style.display = 'block';
+        async function preloadNextVideos() {
             try {
-                const response = await fetch('/list_videos');
+                //const response = await fetch('/list_videos');
+                const response = await ( await fetch('/api/videos', 20)).json()
+                console.log("respose: "+response);
                 const videoFiles = await response.json();
-                
                 if (videoFiles.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * videoFiles.length);
-                    const randomVideoUrl = `/media/${videoFiles[randomIndex]}`;
-                    var newUrl = `/play/${randomVideoUrl.replace('/media/', '')}`;
-                    var currentUrl = window.location.href; // Get the current URL
-                    var filename = currentUrl.split('/').pop(); // Extract the last part of the URL
-                    var pushfile = "/media/" + (filename);
-                    historystack.push(pushfile);
-                    window.history.replaceState({ path: newUrl }, '', newUrl);
-                    player.attachSource(randomVideoUrl);
-                    player.play();
+                    videoQueue = [];
+                    for (let i = 0; i < totalPlayers; i++) {
+                        const randomIndex = Math.floor(Math.random() * videoFiles.length);
+                        const videoUrl = `/media/${videoFiles[randomIndex]}`;
+                        videoQueue.push(videoUrl);
+                    }
+
+                    // Preload videos for all players
+                    for (let i = 0; i < totalPlayers; i++) {
+                        //preloader2.style.display = 'block';
+                        players[i].preload(videoQueue[i]);
+                        console.log(`Video ${i + 1} preloaded:`, videoQueue[i]);
+                    }
+                    //preloader2.style.display = 'none';
                 } else {
-                    const randomIndex = Math.floor(Math.random() * videoFiles.length);
-                    const randomVideoUrl = `/media/${videoFiles[randomIndex]}`;
-                    console.error('No .mpd videos found in the /media folder');
-                    preloader.style.display = 'none';
+                    console.error('No .mpd videos found for preloading');
                 }
             } catch (error) {
-                console.error('Error fetching video list:', error);
-                preloader.style.display = 'none';
+                console.error('Error preloading videos:', error);
             }
         }
-        // let canScroll = false;
-        // setTimeout(() => {
-        //     canScroll = true; // Allow scrolling after 3 seconds (adjust as needed)
-        // }, 100);
-        // Add scroll event listener
-        //window.addEventListener('scroll', loadRandomVideo);
-        function handleScrollEvent(event) {
-            console.log(event.deltaY);
-            console.log(historystack);
-            
-            if (event.deltaY > 0) {
-                // Scrolling down
-                loadRandomVideo();
-            } else if (event.deltaY < 0) {
-                // Scrolling up
-                // window.history.back(); // Go back to the previous URL
-                videourl = historystack.pop();
-                var newUrl = `/play/${videourl.replace('/media/', '')}`;
+
+        async function loadNextVideo() {
+            //preloader.style.display = 'block';
+            if (videoQueue.length > 0) {
+                const nextVideoUrl = videoQueue.shift();
+                var newUrl = `/play/${nextVideoUrl.replace('/media/', '')}`;
                 window.history.replaceState({ path: newUrl }, '', newUrl);
-                player.attachSource(videourl);
-                player.play();
+
+                // Hide the current video and show the next player
+                videos[currentPlayerIndex].style.display = 'none';
+
+                // Push the current video URL to the history stack
+                historystack.push(nextVideoUrl);
+
+                // Switch to the next player in the cycle
+                currentPlayerIndex = (currentPlayerIndex + 1) % totalPlayers;
+
+                players[currentPlayerIndex].attachSource(nextVideoUrl);
+                videos[currentPlayerIndex].style.display = 'block';
+                players[currentPlayerIndex].play();
+                preloadNextVideos();
+            } else {
+                console.error('No preloaded video available');
+                //preloader.style.display = 'none';
             }
         }
-        // function handleScrollEvent(event) {
-        //     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        //     // console.log(event);
-        //     console.log(historystack);
-        //     if (scrollTop > lastScrollTop) {
-        //         // Scrolling down
-        //         console.log("scrolling down");
-        //         loadRandomVideo();
-        //     } else if (scrollTop < lastScrollTop) {
-        //         // Scrolling up
-        //         // window.history.back(); // Go back to the previous URL
-        //         videourl = historystack.pop();
-        //         var newUrl = `/play/${videourl.replace('/media/', '')}`;
-        //         window.history.replaceState({ path: newUrl }, '', newUrl);
-        //         player.attachSource(videourl);
-        //         player.play();
-        //     }
-        //     lastScrollTop = scrollTop;
-        // }
+
+        function handleScrollEvent(event) {
+            if (event.deltaY > 0) {
+                loadNextVideo();
+            } else if (event.deltaY < 0) {
+                // Scroll up: Load the previous video
+                if (historystack.length > 1) {
+                    historystack.pop(); // Remove the current video from history stack
+                    const previousVideoUrl = historystack.pop(); // Get the previous video URL
+                    var newUrl = `/play/${previousVideoUrl.replace('/media/', '')}`;
+                    window.history.replaceState({ path: newUrl }, '', newUrl);
+
+                    // Hide the current video and show the previous one
+                    videos[currentPlayerIndex].style.display = 'none';
+
+                    // Switch to the previous player
+                    currentPlayerIndex = (currentPlayerIndex - 1 + totalPlayers) % totalPlayers;
+
+                    players[currentPlayerIndex].attachSource(previousVideoUrl);
+                    videos[currentPlayerIndex].style.display = 'block';
+                    players[currentPlayerIndex].play();
+                }
+            }
+        }
 
         function addScrollListener() {
             window.addEventListener('wheel', handleScrollEvent);
         }
 
-        // Function to remove the scroll listener
-        function removeScrollListener() {
-            window.removeEventListener('wheel', handleScrollEvent);
-        }
-        
         addScrollListener();
+        preloadNextVideos();
     </script>
 </body>
 </html>
+
+
+

@@ -2,8 +2,11 @@
 import subprocess
 import os
 from pymongo import MongoClient
+#import movies from main.py
 
 def process_video(file_path, output_dir, movie_id):
+    from main import db
+
     filename = os.path.splitext(os.path.basename(file_path))[0]
 
     ffmpeg_command = [
@@ -26,7 +29,8 @@ def process_video(file_path, output_dir, movie_id):
     subprocess.run(ffmpeg_command, check=True)
 
     # MongoDB Update: Assuming the movie collection is already available
+    '''
     client = MongoClient()
-    db = client.your_database_name  # replace with actual db name
+    db = client.your_database_name  # replace with actual db name'''
     movies = db.movies
     movies.update_one({"id": movie_id}, {"$set": {"processed": "complete"}})

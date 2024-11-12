@@ -527,6 +527,7 @@ def add_movies_to_db():
             "id": video[0].split(".")[0],
             "description": video[1],
             "title": video[0].replace(".mp4", ""),
+            "author": "base",
             "processed": "complete"
         }
         try:
@@ -726,7 +727,6 @@ def hello_world():
 @app.route('/list_videos')
 def list_videos():
     media_folder = os.path.join(os.path.dirname(__file__), 'media')
-
     video_files = [f for f in os.listdir(media_folder) if f.endswith('.mpd')]
     #print("Videofile1: "+str(video_files))
     return jsonify(video_files)

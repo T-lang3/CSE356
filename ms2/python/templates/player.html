@@ -55,36 +55,38 @@
     <div id="preloader2">Preloading video after next...</div>-->
     
     <!-- Predefined video players (30 in total) -->
-    <video id="videoPlayer1" controls></video>
-    <video id="videoPlayer2" controls></video>
-    <video id="videoPlayer3" controls></video>
-    <video id="videoPlayer4" controls></video>
-    <video id="videoPlayer5" controls></video>
-    <video id="videoPlayer6" controls></video>
-    <video id="videoPlayer7" controls></video>
-    <video id="videoPlayer8" controls></video>
-    <video id="videoPlayer9" controls></video>
-    <video id="videoPlayer10" controls></video>
-    <video id="videoPlayer11" controls></video>
-    <video id="videoPlayer12" controls></video>
-    <video id="videoPlayer13" controls></video>
-    <video id="videoPlayer14" controls></video>
-    <video id="videoPlayer15" controls></video>
-    <video id="videoPlayer16" controls></video>
-    <video id="videoPlayer17" controls></video>
-    <video id="videoPlayer18" controls></video>
-    <video id="videoPlayer19" controls></video>
-    <video id="videoPlayer20" controls></video>
-    <video id="videoPlayer21" controls></video>
-    <video id="videoPlayer22" controls></video>
-    <video id="videoPlayer23" controls></video>
-    <video id="videoPlayer24" controls></video>
-    <video id="videoPlayer25" controls></video>
-    <video id="videoPlayer26" controls></video>
-    <video id="videoPlayer27" controls></video>
-    <video id="videoPlayer28" controls></video>
-    <video id="videoPlayer29" controls></video>
-    <video id="videoPlayer30" controls></video>
+    <div id = "video-container">
+        <!-- <video id="videoPlayer1" controls></video> -->
+        <!-- <video id="videoPlayer2" controls></video>
+        <video id="videoPlayer3" controls></video>
+        <video id="videoPlayer4" controls></video>
+        <video id="videoPlayer5" controls></video>
+        <video id="videoPlayer6" controls></video>
+        <video id="videoPlayer7" controls></video>
+        <video id="videoPlayer8" controls></video>
+        <video id="videoPlayer9" controls></video>
+        <video id="videoPlayer10" controls></video>
+        <video id="videoPlayer11" controls></video>
+        <video id="videoPlayer12" controls></video>
+        <video id="videoPlayer13" controls></video>
+        <video id="videoPlayer14" controls></video>
+        <video id="videoPlayer15" controls></video>
+        <video id="videoPlayer16" controls></video>
+        <video id="videoPlayer17" controls></video>
+        <video id="videoPlayer18" controls></video>
+        <video id="videoPlayer19" controls></video>
+        <video id="videoPlayer20" controls></video>
+        <video id="videoPlayer21" controls></video>
+        <video id="videoPlayer22" controls></video>
+        <video id="videoPlayer23" controls></video>
+        <video id="videoPlayer24" controls></video>
+        <video id="videoPlayer25" controls></video>
+        <video id="videoPlayer26" controls></video>
+        <video id="videoPlayer27" controls></video>
+        <video id="videoPlayer28" controls></video>
+        <video id="videoPlayer29" controls></video>
+        <video id="videoPlayer30" controls></video> -->
+    </div>
 
     <div id="content">
         <div id="playPauseBtn" onclick="togglePlayPause()">Pause</div>
@@ -103,8 +105,9 @@
         let videos = [];
         let videoQueue = [];
         let currentPlayerIndex = 0; // Current active player
-        const totalPlayers = 30; // Fixed 30 players
+        let totalPlayers = 0; // Fixed 30 players
         let historystack = []; // Stack to track the history of videos
+        let isScrolling = false;
 
         // Collect all the video players into an array
         for (let i = 1; i <= totalPlayers; i++) {
@@ -153,7 +156,8 @@
         }
 
         function togglePlayPause() {
-            const currentVideo = videos[currentPlayerIndex];
+            id = 'videoPlayer'+(currentPlayerIndex)
+            currentVideo = document.getElementById(id);
             if (currentVideo.paused) {
                 //videos[currentPlayerIndex].play();
                 currentVideo.play();
@@ -188,109 +192,156 @@
             });
         }
 
-        /*
-        console.log("starts here");
-        const response = fetch('/api/videos?count=20');  
-        const videoFiles = response.json();
-        videos = videoFiles.videos;
-        let ids = videos.map(item => item.id);
-        console.log("ids: "+ids);*/
-        
-        async function preloadNextVideos() {
-            try {
-                
-                const response4 = await fetch('/api/videos?count=30');  
-                let returnfile = await response4.json();
-                //videos = returnfile.videos;
-                //let ids = videos.map(item => item.id);
-                //const videoFiles = ids.map(item => item+".mpd");
-                
+        // async function preloadNextVideos() {
+        //     try {
+        //         let videoFiles = 0;
+        //         if (videosPlayed %5 == 0){
+        //             console.log(videosPlayed)
+        //             const response = await fetch('/api/videos?count=10')
+        //             const temp = await response.json();
+        //             const temp2 = temp.videos
+        //             videoFiles = temp2.map(item => item.id+".mpd");
+        //             console.log(videoFiles)
+        //             console.log("sdf")
 
-                const response = await fetch('/list_videos');
-                const videoFiles = await response.json();
-                
-                //console.log("files: "+videoFiles);
+        //         }
+        //         // const a = await fetch('/list_videos')
+        //         // const b = await a.json();
+        //         // console.log(b)
+        //         //const response = await fetch('/list_videos');
+        //         if (videoFiles.length > 0) {
+        //             videoQueue = [];
+        //             for (let i = 0; i < totalPlayers; i++) {
+        //                 const videoUrl = `/media/${videoFiles[i]}`;
+        //                 videoQueue.push(videoUrl);
+        //             }
 
-                if (videoFiles.length > 0) {
-                    videoQueue = [];
-                    for (let i = 0; i < totalPlayers; i++) {
-                        const randomIndex = Math.floor(Math.random() * videoFiles.length);
-                        const videoUrl = `/media/${videoFiles[randomIndex]}`;
-                        //console.log("video urls: "+videoUrl);
-                        videoQueue.push(videoUrl);
-                    }
-
-                    // Preload videos for all players
-                    for (let i = 0; i < totalPlayers; i++) {
-                        //preloader2.style.display = 'block';
-                        players[i].preload(videoQueue[i]);
-                        console.log(`Video ${i + 1} preloaded:`, videoQueue[i]);
-                    }
-                    //preloader2.style.display = 'none';
-                } else {
-                    console.error('No .mpd videos found for preloading');
-                }
-            } catch (error) {
-                console.error('Error preloading videos:', error);
-            }
-        }
+        //             // Preload videos for all players
+        //             for (let i = 0; i < totalPlayers; i++) {
+        //                 //preloader2.style.display = 'block';
+        //                 players[i].preload(videoQueue[i]);
+        //                 console.log(`Video ${i + 1} preloaded:`, videoQueue[i]);
+        //             }
+        //             //preloader2.style.display = 'none';
+        //         } else {
+        //             console.error('No .mpd videos found for preloading');
+        //         }
+        //     } catch (error) {
+        //         console.error('Error preloading videos:', error);
+        //     }
+        // }
 
         async function loadNextVideo() {
-            //preloader.style.display = 'block';
-            if (videoQueue.length > 0) {
-                const nextVideoUrl = videoQueue.shift();
-                var newUrl = `/play/${nextVideoUrl.replace('/media/', '')}`;
-                window.history.replaceState({ path: newUrl }, '', newUrl);
+        //preloader.style.display = 'block';
+            const nextVideoUrl = videoQueue[currentPlayerIndex];
+            console.log(nextVideoUrl)
+            var newUrl = `/play/${nextVideoUrl.replace('/media/', '')}`;
+            window.history.replaceState({ path: newUrl }, '', newUrl);
 
-                // Hide the current video and show the next player
-                videos[currentPlayerIndex].style.display = 'none';
+            // Hide the current video and show the next player
+            id = 'videoPlayer'+(currentPlayerIndex-1)
+            video = document.getElementById(id);
+            // console.log('videoPlayer'+(currentPlayerIndex-1), video)
+            video.style.display = 'none';
 
-                // Push the current video URL to the history stack
-                historystack.push(nextVideoUrl);
-
-                // Switch to the next player in the cycle
-                currentPlayerIndex = (currentPlayerIndex + 1) % totalPlayers;
-
-                players[currentPlayerIndex].attachSource(nextVideoUrl);
-                videos[currentPlayerIndex].style.display = 'block';
-                players[currentPlayerIndex].play();
-                preloadNextVideos();
-            } else {
-                console.error('No preloaded video available');
-                //preloader.style.display = 'none';
-            }
+            // Switch to the next player in the cycle
+            id = 'videoPlayer'+(currentPlayerIndex)
+            video = document.getElementById(id);
+            video.style.display = 'block';
         }
 
         function handleScrollEvent(event) {
+            if (isScrolling) return;
+            isScrolling = true;
             if (event.deltaY > 0) {
+                preloadNextVideos();
+                currentPlayerIndex++;
                 loadNextVideo();
             } else if (event.deltaY < 0) {
                 // Scroll up: Load the previous video
-                if (historystack.length > 1) {
-                    historystack.pop(); // Remove the current video from history stack
-                    const previousVideoUrl = historystack.pop(); // Get the previous video URL
+                if (currentPlayerIndex > 0) {
+                    currentPlayerIndex--;
+                    const previousVideoUrl = videoQueue[currentPlayerIndex];
+                    console.log(previousVideoUrl)
                     var newUrl = `/play/${previousVideoUrl.replace('/media/', '')}`;
                     window.history.replaceState({ path: newUrl }, '', newUrl);
 
-                    // Hide the current video and show the previous one
-                    videos[currentPlayerIndex].style.display = 'none';
+                    // Hide the current video and show the next player
+                    id = 'videoPlayer'+(currentPlayerIndex+1)
+                    video = document.getElementById(id);
+                    // console.log('videoPlayer'+(currentPlayerIndex-1), video)
+                    video.style.display = 'none';
 
                     // Switch to the previous player
-                    currentPlayerIndex = (currentPlayerIndex - 1 + totalPlayers) % totalPlayers;
-
-                    players[currentPlayerIndex].attachSource(previousVideoUrl);
-                    videos[currentPlayerIndex].style.display = 'block';
-                    players[currentPlayerIndex].play();
+                    id = 'videoPlayer'+(currentPlayerIndex)
+                    video = document.getElementById(id);
+                    video.style.display = 'block';
                 }
             }
+            setTimeout(() => {
+                isScrolling = false;
+            }, 200);  // Adjust this timeout as needed (e.g., 200ms)
         }
 
         function addScrollListener() {
-            window.addEventListener('wheel', handleScrollEvent);
+            window.addEventListener('wheel', handleScrollEvent)
         }
 
         addScrollListener();
         preloadNextVideos();
+
+        function createVideoElement(src, i) {
+            // Create a new video element
+            const video = document.createElement('video');
+            video.setAttribute('controls', ''); // Add controls to the video element
+            video.id = "videoPlayer" + i;
+            video.preload = "auto"; // Preload the video
+            if (i == 0){
+                video.style.display = 'block'; // Initially show video 1
+            }
+            else{
+                video.style.display = 'none'; // Initially hide the video
+            }
+
+            const player = dashjs.MediaPlayer().create();
+            player.initialize(video, src, false); // Preload without autoplay
+            console.log(src)
+            const videoContainer = document.getElementById('video-container');
+            videoContainer.appendChild(video);
+            return video;
+        }
+
+        async function getNextVideos() {
+            const response = await fetch('/api/videos?count=10')
+            const temp = await response.json();
+            const temp2 = temp.videos
+            videoFiles = temp2.map(item => item.id+".mpd");
+            console.log(videoFiles)
+            console.log(videoQueue)
+            console.log("sdf")
+            return videoFiles
+        }
+        async function preloadNextVideos() {
+            console.log(currentPlayerIndex, totalPlayers)
+            if (currentPlayerIndex >= totalPlayers - 3){
+                totalPlayers+=10
+                videoFiles = await getNextVideos()
+                videoQueue = videoQueue.concat(videoFiles)
+                if (totalPlayers==10){
+                    i = currentPlayerIndex
+                }
+                else{
+                    i = currentPlayerIndex+2
+                }
+                videoFiles.forEach(video => {
+                    createVideoElement("/media/"+video, i);
+                    i++;
+                });
+            }
+        }
+        
+//when loading the page, preload the first 10 videos.
+//when scrolling up or down, have the current videos. Have a max videos. If near the max, preload some more and expand the max.
     </script>
 </body>
 </html>

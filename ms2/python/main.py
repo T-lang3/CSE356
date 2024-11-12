@@ -30,12 +30,12 @@ movies = db.movies
 counter = db.counter
 
 #dummmy account
-# db.users.insert_one({
-#    'username': "sdf",
-#    'password': "",
-#    'email': "user@example.com",
-#    'disabled': False
-# })
+db.users.insert_one({
+   'username': "sdf",
+   'password': "",
+   'email': "user@example.com",
+   'disabled': False
+})
 
 def is_authenticated():
     if 'username' in session:
@@ -273,7 +273,6 @@ def tlogin():
 @app.route('/api/logout', methods=['POST', 'GET'])
 def logout():
     session.clear()  # Remove username from session
-    print("logged out")
     return ret_json(0, "Logged out successfully.")
 
 @app.route('/api/check-auth', methods=['POST'])
@@ -481,7 +480,7 @@ def like():
     if current_feedback and current_feedback['value'] == value:
         like_count = feedbacks.count_documents({"post_id": id, "value": 1})
         print("same value as before for user", session['username'])
-        return json.dumps({"status": "ERROR", "likes": like_count, "error": True, "message":"same value as before"}) 
+        return ret_json(1, "Same value as before")
     if current_feedback:
         feedbacks.update_one(
             {"user_id": user, "post_id": id},
@@ -547,7 +546,6 @@ def add_movies_to_db():
 UPLOAD_FOLDER = './static/upload'
 OUTPUT = './media'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT, exist_ok=True)
 
 @app.route('/api/upload', methods=['POST'])
 def upload_video():
@@ -714,7 +712,6 @@ def processing_status():
 @app.route("/", methods=['POST', 'GET'])
 def hello_world():
     if 'username' in session:
-        print(session['username'])
         videos = recommend_videos()
         # video_dict = {video['id']: video['description'] for video in videos}
         # print(videos, len(videos))

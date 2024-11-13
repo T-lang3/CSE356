@@ -135,6 +135,15 @@
         const videoContainer = document.getElementById('video-container');
         videoContainer.appendChild(video);
         console.log(videoContainer)
+        fetch("{{ url_for('update_watched_videos') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'id': id_passed,
+                }),
+            })
 
         // Initialize all players
         players.forEach((player, index) => {
@@ -194,7 +203,8 @@
                 body: JSON.stringify({
                     'id': id,
                     'value': val,
-                    'user': username
+                    'user': username,
+                    'video': currentPlayerIndex
                 }),
             })
             .then(response => response.json())
@@ -262,6 +272,15 @@
             id = 'videoPlayer'+(currentPlayerIndex)
             video = document.getElementById(id);
             video.style.display = 'block';
+            fetch("{{ url_for('update_watched_videos') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'id': nextVideoUrl,
+                }),
+            })
         }
 
         function handleScrollEvent(event) {
@@ -323,31 +342,44 @@
         }
 
         async function getNextVideos() {
-            const response = await fetch('/api/videos?count=10')
+            const response = await fetch('/api/videos?count=20')
             const temp = await response.json();
             const temp2 = temp.videos
             videoFiles = temp2.map(item => item.id+".mpd");
             console.log(videoFiles)
             console.log(videoQueue)
-            console.log("sdf")
+            // console.log("sdf")
             return videoFiles
         }
         async function preloadNextVideos() {
-            if (currentPlayerIndex >= totalPlayers - 3){
+            console.log(currentPlayerIndex, totalPlayers)
+            if (currentPlayerIndex >= totalPlayers - 5){
+                oldtotalPlayers = totalPlayers
                 totalPlayers+=10
                 videoFiles = await getNextVideos()
-                videoQueue = videoQueue.concat(videoFiles)
-                if (totalPlayers==11){
-                    i = currentPlayerIndex+1
+                added = 0
+                for (j = 0; j < 20; j++){
+                    if (added>=10){
+                        console.log("added enough videos")
+                        break;
+                    }
+                    video = videoFiles[j];
+                    console.log(video)
+                    if (videoQueue.includes(video)){
+                        console.log(video + " is the same")
+                        continue;
+                    }
+                    createVideoElement("/media/"+video, added+oldtotalPlayers);
+                    videoQueue.push(videoFiles[j])
+                    added++;
                 }
-                else{
-                    i = currentPlayerIndex+2
-                }
-                videoFiles.forEach(video => {
-                    createVideoElement("/media/"+video, i);
-                    i++;
-                });
+                // videoFiles.forEach(video => {
+                //     createVideoElement("/media/"+video, i);
+                //     i++;
+                // });
+            console.log(videoQueue)
             }
+            
         }
         
 //when loading the page, preload the first 10 videos.

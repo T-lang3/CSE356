@@ -1,4 +1,5 @@
 import json
+from threading import Thread
 from flask import Flask, render_template, request, jsonify, url_for, flash, redirect, session, send_file
 from flask_pymongo import PyMongo
 import os, smtplib
@@ -30,12 +31,12 @@ movies = db.movies
 counter = db.counter
 
 #dummmy account
-db.users.insert_one({
-   'username': "sdf",
-   'password': "",
-   'email': "user@example.com",
-   'disabled': False
-})
+# db.users.insert_one({
+#    'username': "sdf",
+#    'password': "",
+#    'email': "user@example.com",
+#    'disabled': False
+# })
 
 def is_authenticated():
     if 'username' in session:
@@ -160,7 +161,7 @@ def add_user_body(name, password, email):
         print(verification_link)
         # Send the verification email (Here you would integrate your mail server logic)
         send_verification_email(email, verification_link)
-        return ret_json(0, "User added! Please verify with url that was sent to email. {verification_link}")
+        return ret_json(0, f"User added! Please verify with url that was sent to email. {verification_link}")
     except Exception as e:
         return ret_json(1, "An error occured adding user to database")
 
@@ -320,7 +321,7 @@ def recommend_videos(count=10):
     watched = users.find_one({"username": user}).get("watched", [])
     all_ids = list(movies.find({"processed":"complete"}, {'_id': 0, 'id': 1}))
     not_watched = list(set([doc['id'] for doc in all_ids]) - set(watched))
-    print("videos that are not watched", not_watched)
+    # print("videos that are not watched", not_watched)
     not_recommended = []#has to also be not watched
     if feedbacks.count_documents({}) != 0 and feedbacks.count_documents({"user_id": user}):#There is feedback to decide what to train and user has done recommendations before
         data = list(f)
@@ -388,8 +389,16 @@ def recommend_watched(v, user, videos, left):#get watched, get all videos, get t
         v.append(temp)
         
 def recommend_random(v, videos, left):
+    n = len(videos)
+    numbers = list(range(0, n))
+    random.shuffle(numbers)
+    i = 0
     while left:
-        video = random.choice(videos)
+        if i == n:#loops back to the start and randomizes the list again. This way it picks all the videos before randomly starting again
+            i = 0
+            random.shuffle(numbers)
+        video = videos[numbers[i]]
+        i+=1
         temp = {
             "id": video.get("id"),
             "description": video.get("description"),
@@ -462,7 +471,8 @@ def like():
         data = request.json
         id = data.get('id')
         value = data.get('value')
-        print(value)
+        v = data.get('video')
+        print("videoID", v)
         if data.get('user'):
             user = data.get('user')
         value = 1 if value == True else -1 if value == False else 0
@@ -557,7 +567,7 @@ def upload_video():
         return jsonify({"error": True, "message": "Missing fields", "status": "ERROR"}), 400
 
     #save movie to database
-    movie_id = get_next_id()
+    movie_id = str(get_next_id())
     movie = {
             "id": movie_id,
             "description": title,
@@ -573,10 +583,10 @@ def upload_video():
     
     username = session['username']
     #user = users.find_one({"username": session['username']})
-    user = db.users.find_one({"username": session['username']})
+    user = db.users.find_one({"username": username})
 
-    print("user: "+str(username))
-    print(user, session['username'])
+    # print("user: "+str(username))
+    # print(user, session['username'])
     
     if user is None:
         return jsonify({"error": True, "message": "User not found", "status": "ERROR"}), 404
@@ -585,9 +595,9 @@ def upload_video():
     uploaded.append({
         "id": movie_id,
         "title": title,
-        "processed": "complete"
+        "processed": "processing"
     })
-    db.users.update_one({"username": session['username']}, {"$set": {"uploaded": uploaded}})
+    db.users.update_one({"username": username}, {"$set": {"uploaded": uploaded}})
     
 
     file_path = os.path.join(UPLOAD_FOLDER, secure_filename(mp4_file.filename))
@@ -596,24 +606,26 @@ def upload_video():
     except Exception as e:
         return jsonify({"error": True, "message": f"File save error: {str(e)}", "status": "ERROR"}), 500
 
-    print("the file: "+str(mp4_file.filename))
-    print("inputed value: '"+str(file_path)+"'")
-    print("movie_id: '"+str(movie_id)+"'")
+    # print("the file: "+str(mp4_file.filename))
+    # print("inputed value: '"+str(file_path)+"'")
+    # print("movie_id: '"+str(movie_id)+"'")
     # Resize and process the video using ffmpeg
 
     #changing ../media to ./media writes to the media folder in python
-    output_dir = "./media"
+    output_dir = './media'
+    pad_dir = './static/padded_upload'
     #q.enqueue(process_video, file_path, output_dir, movie_id)
 
+    thread = Thread(target=process_video, args=(file_path, output_dir, pad_dir, movie_id, movies, users, username))
+    thread.start()
+    # command = ['./convert.sh', file_path, output_dir]
+    # try:
+    #     result = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    #     print("Script executed successfully")
+    # except subprocess.CalledProcessError as e:
+    #     print(f"Error during execution: {e}")
 
-    command = ['./convert.sh', file_path, output_dir]
-    try:
-        result = subprocess.run(command, check=True, text=True, capture_output=True)
-        print("Script executed successfully")
-    except subprocess.CalledProcessError as e:
-        print(f"Error during execution: {e}")
-
-    print("ruinn")
+    # print("ruinn")
     # output_dir = os.path.join(OUTPUT, secure_filename(mp4_file.filename))
     # try:
     #     mp4_file.save(file_path)
@@ -700,12 +712,12 @@ def processing_status():
     videos = []
     for video in video_docs:
         video_data = {
-            "id": video["id"],
+            "id": str(video["id"]),
             "title": video["title"],
             "status": video["processed"]
         }
         videos.append(video_data)
-
+    print(videos)
     return jsonify({"videos": videos, "status": "OK"}), 200
 
 #The base url. If logged in, goes to index.html, else it goes to rootlogin. If using POST, then it logs in with request.form information

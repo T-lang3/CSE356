@@ -22,8 +22,6 @@ def process_video(file_path, output_dir, pad_dir, movie_id, movies, users, usern
     ]
     ffmpeg_command = [
         "ffmpeg", "-i", pad_path,
-        "-preset", "veryfast", 
-        "-threads", "4", 
         "-map", "0:v", "-b:v:0", "254k", "-s:v:0", "320x180",
         "-map", "0:v", "-b:v:1", "507k", "-s:v:1", "320x180",
         "-map", "0:v", "-b:v:2", "759k", "-s:v:2", "480x270",

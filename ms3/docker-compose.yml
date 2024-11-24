@@ -12,7 +12,7 @@ services:
       - ./nginx/certs-data:/data/letsencrypt
     depends_on:
       - python
-      - certbot
+      # - certbot
     network_mode: host
 
   mongo:
@@ -84,9 +84,9 @@ services:
     #   - REDIS_PASSWORD=66cfe2a89ba30e1a6c70680a
     command: ["redis-server"]
 
-  certbot:
-    image: certbot/certbot
-    container_name: certbot
-    volumes:
-      - ./nginx/certs:/etc/letsencrypt
-      - ./nginx/certs-data:/data/letsencrypt
+  # certbot:
+  #   image: certbot/certbot
+  #   container_name: certbot
+  #   volumes:
+  #     - ./nginx/certs:/etc/letsencrypt
+  #     - ./nginx/certs-data:/data/letsencrypt

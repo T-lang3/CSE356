@@ -36,7 +36,8 @@ counter = db.counter
 #    'username': "sdf",
 #    'password': "",
 #    'email': "user@example.com",
-#    'disabled': False
+#    'disabled': False,
+#    'watched': []
 # })
 
 def is_authenticated():
@@ -316,7 +317,7 @@ def videos():
     recommendations = recommend_videos(count, video_id)
     return json.dumps({"status": "OK", "videos": recommendations})
 
-def recommend_videos(count, video_id):
+def recommend_videos(count = 10, video_id = None):
     # print("count", count)
     data = list(feedbacks.find({}, {"_id": 0}))
     v = []#list of videos to recommend
@@ -328,7 +329,7 @@ def recommend_videos(count, video_id):
     not_watched = list(set(all_ids) - set(watched))
     # print("videos that are not watched", not_watched)
     not_recommended = []#has to also be not watched
-    if len(data) != 0:#item-based filtering     it transposes the user filtering data frame so video_ids are the rows. 
+    if video_id != None and len(data) != 0:#item-based filtering     it transposes the user filtering data frame so video_ids are the rows. 
                                                 #This is so we can use cosine_similarity to find similar videos based on likes/dislikes.
                                                 #Then we get the like profile of our video and find other videos with similar profiles.
         print("item filtering")

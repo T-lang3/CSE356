@@ -59,7 +59,7 @@ public_endpoints = set([
 ])
 
 #If a method is not in public_endpoints, then you must be logged in to use the api. Comment this out to use everything without logging in
-@app.before_request
+#@app.before_request
 def require_login():
     # Check if the requested endpoint is not in the public endpoints
     if request.endpoint not in public_endpoints and not is_authenticated():
@@ -138,7 +138,7 @@ def add_user_body(name, password, email):
         "username": name,
         "password": password,
         "email": email,
-        "disabled": True,
+        "disabled": False,
         "verification_key": verification_key,
         "watched": [],
         "uploaded": []
@@ -279,6 +279,7 @@ def logout():
 
 @app.route('/api/check-auth', methods=['POST'])
 def get_session():
+
     if 'username' in session:
         return jsonify({"isLoggedIn": True, "userID": session['username']}), 200
     else:

@@ -5,7 +5,7 @@ input_dir="../python/static/videos"  # Change this to your video folder path
 output_dir="../python/static/padded_videos"  # Change this to your desired output folder path
 
 # Create the output directory if it doesn't exist
-# mkdir -p "$output_dir"
+mkdir -p "$output_dir"
 
 
 # pad=width=1280:height=720:x=-1:y=-1:color=black # change the width and height for everything

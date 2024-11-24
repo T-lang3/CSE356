@@ -20,8 +20,8 @@ for video in "$input_dir"/*.mp4; do
         -map 0:v -b:v:1 768k -s:v:1 960x540 \
         -map 0:v -b:v:2 1024k -s:v:2 1280x720 \
         -f dash -seg_duration 10 -use_template 1 -use_timeline 1 \
-        -init_seg_name "${output_dir}/${filename}_\$RepresentationID\$_init.m4s" \
-        -media_seg_name "${output_dir}/${filename}_\$Bandwidth\$_\$Number\$.m4s" \
+        -init_seg_name "${filename}_\$RepresentationID\$_init.m4s" \
+        -media_seg_name "${filename}_\$Bandwidth\$_\$Number\$.m4s" \
         -adaptation_sets "id=0,streams=v" \
         "$output_dir/${filename}.mpd"
 

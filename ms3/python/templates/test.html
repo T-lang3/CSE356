@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MPEG-DASH Player</title>
+    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+    <style>
+        body {
+            height: 140vh;
+            margin: 0;
+            overflow-y: scroll;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #videoPlayer, #videoPlayer2 {
+            max-width: 640px;
+            max-height: 360px;
+            position: fixed;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            display: none;
+        }
+        #content {
+            height: 1500px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 500px;
+        }
+        #preloader, #preloader2 {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            line-height: 100vh;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <div id="preloader">Loading next video...</div>
+    <div id="preloader2">Preloading video after next...</div>
+    <video id="videoPlayer" controls></video>
+    <video id="videoPlayer2" controls></video>
+    <div id="content">
+        <div id="playPauseBtn" onclick="togglePlayPause()">Pause</div>
+        <button name="like" onclick="like(true)">like</button>
+        <button name="dislike" onclick="like(false)">dislike</button>
+        <select id="resolutionSelect" onchange="changeResolution()">
+            <option value="">Select Resolution</option>
+        </select>
+        <p>Scroll down to change the video.</p>
+    </div>
+
+    <script>
+        let preloader = document.getElementById('preloader');
+        let preloader2 = document.getElementById('preloader2');
+        let video1 = document.querySelector('#videoPlayer');
+        let video2 = document.querySelector('#videoPlayer2');
+        let player1 = dashjs.MediaPlayer().create();
+        let player2 = dashjs.MediaPlayer().create();
+        let videoQueue = [];
+        let historystack = [];
+        var id_passed = "{{id}}";
+        var username = "{{ username }}";
+        var new_id = id_passed.replace('.mp4', '.mpd');
+        var url = `/media/${new_id}`;
+
+        player1.initialize(video1, url, true);
+        player2.initialize(video2, url, true);
+
+        player1.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
+            preloader.style.display = 'none';
+            populateResolutions();
+        });
+
+        function populateResolutions() {
+            var resolutions = player1.getBitrateInfoListFor('video');
+            var resolutionSelect = document.getElementById('resolutionSelect');
+            resolutions.forEach(function(resolution, index) {
+                var option = document.createElement('option');
+                option.value = index;
+                option.text = `${resolution.width}x${resolution.height} - ${resolution.bitrate / 1000} kbps`;
+                resolutionSelect.appendChild(option);
+            });
+        }
+
+        function changeResolution() {
+            var resolutionSelect = document.getElementById('resolutionSelect');
+            var selectedIndex = resolutionSelect.value;
+            if (selectedIndex) {
+                player1.setQualityFor('video', parseInt(selectedIndex, 10));
+                player1.play();
+            } else {
+                player1.setAutoSwitchQualityFor('video', true);
+            }
+        }
+
+        function togglePlayPause() {
+            if (video1.paused) {
+                video1.play();
+                document.getElementById("playPauseBtn").innerHTML = "Pause";
+            } else {
+                video1.pause();
+                document.getElementById("playPauseBtn").innerHTML = "Play";
+            }
+        }
+
+        function like(val) {
+            var currentUrl = window.location.href;
+            var id = currentUrl.split('/').pop();
+            fetch("{{ url_for('like') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'id': id,
+                    'value': val,
+                    'user': username
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Handle response data if needed
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        async function preloadNextVideos() {
+            try {
+                const response = await fetch('/list_videos');
+                const videoFiles = await response.json();
+                if (videoFiles.length > 0) {
+                    videoQueue = [];
+                    for (let i = 0; i < 2; i++) {
+                        const randomIndex = Math.floor(Math.random() * videoFiles.length);
+                        const videoUrl = `/media/${videoFiles[randomIndex]}`;
+                        videoQueue.push(videoUrl);
+                    }
+
+                    if (videoQueue.length > 0) {
+                        preloader2.style.display = 'block';
+                        player2.preload(videoQueue[0]);
+                        console.log('First preloaded video:', videoQueue[0]);
+                        preloader2.style.display = 'none';
+                    }
+
+                    if (videoQueue.length > 1) {
+                        preloader2.style.display = 'block';
+                        player2.preload(videoQueue[1]);
+                        console.log('Second preloaded video:', videoQueue[1]);
+                        preloader2.style.display = 'none';
+                    }
+                } else {
+                    console.error('No .mpd videos found for preloading');
+                }
+            } catch (error) {
+                console.error('Error preloading videos:', error);
+            }
+        }
+
+        async function loadNextVideo() {
+            preloader.style.display = 'block';
+            if (videoQueue.length > 0) {
+                const nextVideoUrl = videoQueue.shift();
+                var newUrl = `/play/${nextVideoUrl.replace('/media/', '')}`;
+                window.history.replaceState({ path: newUrl }, '', newUrl);
+                player1.attachSource(nextVideoUrl);
+                video1.style.display = 'block';
+                video2.style.display = 'none';
+                player1.play();
+                preloadNextVideos();
+            } else {
+                console.error('No preloaded video available');
+                preloader.style.display = 'none';
+            }
+        }
+
+        function handleScrollEvent(event) {
+            if (event.deltaY > 0) {
+                loadNextVideo();
+            } else if (event.deltaY < 0) {
+                videourl = historystack.pop();
+                var newUrl = `/play/${videourl.replace('/media/', '')}`;
+                window.history.replaceState({ path: newUrl }, '', newUrl);
+                player1.attachSource(videourl);
+                player1.play();
+            }
+        }
+
+        function addScrollListener() {
+            window.addEventListener('wheel', handleScrollEvent);
+        }
+
+        addScrollListener();
+        preloadNextVideos();
+    </script>
+</body>
+</html>
+
+
+

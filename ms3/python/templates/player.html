@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MPEG-DASH Player</title>
+    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+    <style>
+        body {
+            height: 140vh;
+            margin: 0;
+            overflow-y: scroll;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        video {
+            max-width: 640px;
+            max-height: 360px;
+            position: fixed;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            display: none; /* Hide all players initially */
+        }
+        #content {
+            height: 1500px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 500px;
+        }
+        #preloader, #preloader2 {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            line-height: 100vh;
+            z-index: 20;
+        }
+        #playPauseBtn{
+            margin-top: 300px;
+        }
+    </style>
+</head>
+<body>
+    <!--<div id="preloader">Loading next video...</div>
+    <div id="preloader2">Preloading video after next...</div>-->
+    
+    <!-- Predefined video players (30 in total) -->
+    <div id = "video-container">
+        <!-- <video id="videoPlayer0" controls></video> -->
+        <!-- <video id="videoPlayer2" controls></video>
+        <video id="videoPlayer3" controls></video>
+        <video id="videoPlayer4" controls></video>
+        <video id="videoPlayer5" controls></video>
+        <video id="videoPlayer6" controls></video>
+        <video id="videoPlayer7" controls></video>
+        <video id="videoPlayer8" controls></video>
+        <video id="videoPlayer9" controls></video>
+        <video id="videoPlayer10" controls></video>
+        <video id="videoPlayer11" controls></video>
+        <video id="videoPlayer12" controls></video>
+        <video id="videoPlayer13" controls></video>
+        <video id="videoPlayer14" controls></video>
+        <video id="videoPlayer15" controls></video>
+        <video id="videoPlayer16" controls></video>
+        <video id="videoPlayer17" controls></video>
+        <video id="videoPlayer18" controls></video>
+        <video id="videoPlayer19" controls></video>
+        <video id="videoPlayer20" controls></video>
+        <video id="videoPlayer21" controls></video>
+        <video id="videoPlayer22" controls></video>
+        <video id="videoPlayer23" controls></video>
+        <video id="videoPlayer24" controls></video>
+        <video id="videoPlayer25" controls></video>
+        <video id="videoPlayer26" controls></video>
+        <video id="videoPlayer27" controls></video>
+        <video id="videoPlayer28" controls></video>
+        <video id="videoPlayer29" controls></video>
+        <video id="videoPlayer30" controls></video> -->
+    </div>
+
+    <div id="content">
+        <div id="playPauseBtn" onclick="togglePlayPause()">Pause</div>
+        <button name="like" onclick="like(true)">like</button>
+        <button name="dislike" onclick="like(false)">dislike</button>
+        <select id="resolutionSelect" onchange="changeResolution()">
+            <option value="">Select Resolution</option>
+        </select>
+        <p>Scroll down to change the video.</p>
+    </div>
+
+    <script>
+        //let preloader = document.getElementById('preloader');
+        //let preloader2 = document.getElementById('preloader2');
+        var id_passed = "{{id}}";
+        var username = "{{ username }}";
+        var new_id = id_passed.replace('.mp4', '.mpd');
+        var url = `/media/${new_id}`;
+
+        let players = [];
+        let videos = [];
+        let videoQueue = [new_id];
+        let currentPlayerIndex = 0; // Current active player
+        let totalPlayers = 1; // Fixed 30 players
+        let historystack = []; // Stack to track the history of videos
+        let isScrolling = false;
+
+        // Collect all the video players into an array
+        for (let i = 1; i <= totalPlayers; i++) {
+            let videoElement = document.getElementById(`videoPlayer${i}`);
+            let player = dashjs.MediaPlayer().create();
+            players.push(player);
+            videos.push(videoElement);
+        }
+
+
+        // Create a new video element
+        let video = document.createElement('video');
+        video.setAttribute('controls', ''); // Add controls to the video element
+        video.id = "videoPlayer0";
+        video.preload = "auto"; // Preload the video
+        video.style.display = 'block'; // Initially show video 1
+
+        const player = dashjs.MediaPlayer().create();
+        player.initialize(video, url, false); // Preload without autoplay
+        const videoContainer = document.getElementById('video-container');
+        videoContainer.appendChild(video);
+        console.log(videoContainer)
+        fetch("{{ url_for('update_watched_videos') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'id': id_passed,
+                }),
+            })
+
+        // Initialize all players
+        players.forEach((player, index) => {
+            player.initialize(videos[index], url, true);
+            player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
+                if (index === 0) {
+                    //preloader.style.display = 'none';
+                    populateResolutions();
+                }
+            });
+        });
+
+        function populateResolutions() {
+            var resolutions = players[0].getBitrateInfoListFor('video');
+            var resolutionSelect = document.getElementById('resolutionSelect');
+            resolutions.forEach(function(resolution, index) {
+                var option = document.createElement('option');
+                option.value = index;
+                option.text = `${resolution.width}x${resolution.height} - ${resolution.bitrate / 1000} kbps`;
+                resolutionSelect.appendChild(option);
+            });
+        }
+
+        function changeResolution() {
+            var resolutionSelect = document.getElementById('resolutionSelect');
+            var selectedIndex = resolutionSelect.value;
+            if (selectedIndex) {
+                players[currentPlayerIndex].setQualityFor('video', parseInt(selectedIndex, 10));
+                players[currentPlayerIndex].play();
+            } else {
+                players[currentPlayerIndex].setAutoSwitchQualityFor('video', true);
+            }
+        }
+
+        function togglePlayPause() {
+            id = 'videoPlayer'+(currentPlayerIndex)
+            currentVideo = document.getElementById(id);
+            if (currentVideo.paused) {
+                //videos[currentPlayerIndex].play();
+                currentVideo.play();
+                document.getElementById("playPauseBtn").innerHTML = "Pause";
+            } else {
+                //videos[currentPlayerIndex].pause();
+                currentVideo.pause();
+                document.getElementById("playPauseBtn").innerHTML = "Play";
+            }
+        }
+
+        function like(val) {
+            var currentUrl = window.location.href;
+            var id = currentUrl.split('/').pop().split(".mpd")[0];
+            fetch("{{ url_for('like') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'id': id,
+                    'value': val,
+                    'user': username,
+                    'video': currentPlayerIndex
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Handle response data if needed
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        // async function preloadNextVideos() {
+        //     try {
+        //         let videoFiles = 0;
+        //         if (videosPlayed %5 == 0){
+        //             console.log(videosPlayed)
+        //             const response = await fetch('/api/videos?count=10')
+        //             const temp = await response.json();
+        //             const temp2 = temp.videos
+        //             videoFiles = temp2.map(item => item.id+".mpd");
+        //             console.log(videoFiles)
+        //             console.log("sdf")
+
+        //         }
+        //         // const a = await fetch('/list_videos')
+        //         // const b = await a.json();
+        //         // console.log(b)
+        //         //const response = await fetch('/list_videos');
+        //         if (videoFiles.length > 0) {
+        //             videoQueue = [];
+        //             for (let i = 0; i < totalPlayers; i++) {
+        //                 const videoUrl = `/media/${videoFiles[i]}`;
+        //                 videoQueue.push(videoUrl);
+        //             }
+
+        //             // Preload videos for all players
+        //             for (let i = 0; i < totalPlayers; i++) {
+        //                 //preloader2.style.display = 'block';
+        //                 players[i].preload(videoQueue[i]);
+        //                 console.log(`Video ${i + 1} preloaded:`, videoQueue[i]);
+        //             }
+        //             //preloader2.style.display = 'none';
+        //         } else {
+        //             console.error('No .mpd videos found for preloading');
+        //         }
+        //     } catch (error) {
+        //         console.error('Error preloading videos:', error);
+        //     }
+        // }
+
+        async function loadNextVideo() {
+        //preloader.style.display = 'block';
+            const nextVideoUrl = videoQueue[currentPlayerIndex];
+            console.log(nextVideoUrl)
+            var newUrl = `/play/${nextVideoUrl.replace('/media/', '')}`;
+            window.history.replaceState({ path: newUrl }, '', newUrl);
+
+            // Hide the current video and show the next player
+            id = 'videoPlayer'+(currentPlayerIndex-1)
+            video = document.getElementById(id);
+            // console.log('videoPlayer'+(currentPlayerIndex-1), video)
+            video.style.display = 'none';
+
+            // Switch to the next player in the cycle
+            id = 'videoPlayer'+(currentPlayerIndex)
+            video = document.getElementById(id);
+            video.style.display = 'block';
+            fetch("{{ url_for('update_watched_videos') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'id': nextVideoUrl,
+                }),
+            })
+        }
+
+        function handleScrollEvent(event) {
+            if (isScrolling) return;
+            isScrolling = true;
+            if (event.deltaY > 0) {
+                preloadNextVideos();
+                currentPlayerIndex++;
+                loadNextVideo();
+                
+                console.log(currentPlayerIndex, totalPlayers)
+            } else if (event.deltaY < 0) {
+                // Scroll up: Load the previous video
+                if (currentPlayerIndex > 0) {
+                    currentPlayerIndex--;
+                    const previousVideoUrl = videoQueue[currentPlayerIndex];
+                    console.log(previousVideoUrl)
+                    var newUrl = `/play/${previousVideoUrl.replace('/media/', '')}`;
+                    window.history.replaceState({ path: newUrl }, '', newUrl);
+
+                    // Hide the current video and show the next player
+                    id = 'videoPlayer'+(currentPlayerIndex+1)
+                    video = document.getElementById(id);
+                    // console.log('videoPlayer'+(currentPlayerIndex-1), video)
+                    video.style.display = 'none';
+
+                    // Switch to the previous player
+                    id = 'videoPlayer'+(currentPlayerIndex)
+                    video = document.getElementById(id);
+                    video.style.display = 'block';
+                }
+            }
+            setTimeout(() => {
+                isScrolling = false;
+            }, 200);  // Adjust this timeout as needed (e.g., 200ms)
+        }
+
+        function addScrollListener() {
+            window.addEventListener('wheel', handleScrollEvent)
+        }
+
+        addScrollListener();
+        preloadNextVideos();
+
+        function createVideoElement(src, i) {
+            // Create a new video element
+            const video = document.createElement('video');
+            video.setAttribute('controls', ''); // Add controls to the video element
+            video.id = "videoPlayer" + i;
+            video.preload = "auto"; // Preload the video
+            video.style.display = 'none'; // Initially hide the video
+
+            const player = dashjs.MediaPlayer().create();
+            player.initialize(video, src, false); // Preload without autoplay
+            console.log(src)
+            const videoContainer = document.getElementById('video-container');
+            videoContainer.appendChild(video);
+            return video;
+        }
+
+        async function getNextVideos() {
+            const response = await fetch('/api/videos?count=20')
+            const temp = await response.json();
+            const temp2 = temp.videos
+            videoFiles = temp2.map(item => item.id+".mpd");
+            console.log(videoFiles)
+            console.log(videoQueue)
+            // console.log("sdf")
+            return videoFiles
+        }
+        async function preloadNextVideos() {
+            console.log(currentPlayerIndex, totalPlayers)
+            if (currentPlayerIndex >= totalPlayers - 5){
+                oldtotalPlayers = totalPlayers
+                totalPlayers+=10
+                videoFiles = await getNextVideos()
+                added = 0
+                for (j = 0; j < 20; j++){
+                    if (added>=10){
+                        console.log("added enough videos")
+                        break;
+                    }
+                    video = videoFiles[j];
+                    console.log(video)
+                    if (videoQueue.includes(video)){
+                        console.log(video + " is the same")
+                        continue;
+                    }
+                    createVideoElement("/media/"+video, added+oldtotalPlayers);
+                    videoQueue.push(videoFiles[j])
+                    added++;
+                }
+                // videoFiles.forEach(video => {
+                //     createVideoElement("/media/"+video, i);
+                //     i++;
+                // });
+            console.log(videoQueue)
+            }
+            
+        }
+        
+//when loading the page, preload the first 10 videos.
+//when scrolling up or down, have the current videos. Have a max videos. If near the max, preload some more and expand the max.
+    </script>
+</body>
+</html>
+
+
+

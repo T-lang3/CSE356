@@ -23,7 +23,7 @@ def extract_thumbnail(video_path, thumbnail_path):
     ]
     subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
-#Process all MP4 videos in the directory
+# Process all MP4 videos in the directory
 for filename in os.listdir(video_directory):
     if filename.endswith(".mp4"):
         video_path = os.path.join(video_directory, filename)

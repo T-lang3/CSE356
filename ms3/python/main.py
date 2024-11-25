@@ -332,37 +332,42 @@ def recommend_videos(count = 10, video_id = None):
     not_watched = list(set(all_ids) - set(watched))
     # print("videos that are not watched", not_watched)
     not_recommended = []#has to also be not watched
-    print(video_id)
+    # print(video_id)
+    # print(feedback_map)
     if video_id != None and any(d.get('post_id') == video_id for d in data):#item-based filtering     it transposes the user filtering data frame so video_ids are the rows. 
                                                 #This is so we can use cosine_similarity to find similar videos based on likes/dislikes.
                                                 #Then we get the like profile of our video and find other videos with similar profiles.
         # print("item filtering")
         df = pd.DataFrame(data)
-        df = df[['user_id', 'post_id', 'value']]  # Select relevant columns
         user_item_matrix = df.pivot_table(index='post_id', columns='user_id', values='value', fill_value=0)
-        print("user item matrix", user_item_matrix)
+        # print("user item matrix", user_item_matrix)
         similarity_matrix = cosine_similarity(user_item_matrix)
-        print("similarity_matrix", similarity_matrix)
+        # print("similarity_matrix", similarity_matrix)
         video_id_to_index = {video_id: idx for idx, video_id in enumerate(user_item_matrix.index)}
         index_to_video_id = {idx: video_id for idx, video_id in enumerate(user_item_matrix.index)}
-        print(video_id_to_index)
+        # print(video_id_to_index)
         index = video_id_to_index.get(video_id)
         video_similarities = similarity_matrix[index]   #We need the index because video_id is not a number.
-        print(index)
+        # print(index)
         similar_videos = pd.Series(video_similarities).sort_values()[lambda x: x != 0].index.values  # Sort in descending order, excluding values of 0 for videos that aren't similar
-        print("indices of similar videos", similar_videos)
+        # print("indices of similar videos", similar_videos)
         similar_videos = similar_videos[similar_videos != index]  # Exclude the video itself
         similar_videos = similar_videos[:count] #get up to count number of videos
         id_list = [index_to_video_id[idx] for idx in similar_videos]
-        print("ids of not watched videos", not_watched)
+        # print("ids of not watched videos", not_watched)
         id_list_and_not_watched = list(set(id_list) & set(not_watched))
         not_watched_and_not_recommended = list(set(not_watched) - set(id_list))
-        print("recommended videos", id_list)
-        print("recommended videos not watched", id_list_and_not_watched)
+        # print("recommended videos", id_list)
+        # print("recommended videos not watched", id_list_and_not_watched)
         # print("not recommended videos not watched", not_watched_and_not_recommended)
         not_recommended = list(movies.find({'id': {'$in': not_watched_and_not_recommended}}, {"_id": 0}))#list of videos that are not recommended and not watched
         recommended = list(movies.find({'id': {'$in': id_list_and_not_watched}}, {"_id": 0}))#list of videos that are are recommended and not watched
-        print("length of recommendations:", len(recommended))
+        # print("length of recommendations:", len(recommended))
+        feedback_map = feedbacks.aggregate([
+            {"$match": {"post_id": {"$in": id_list_and_not_watched}}},
+            {"$group": {"_id": "$post_id", "count": {"$sum": 1}}}
+        ])
+        feedback_map = {f["_id"]: f["count"] for f in feedback_map}
         for video in recommended:#video is post_id so I will need to first find the movie in movies collection to get the actual description
             temp = {
                 "id": video.get("id"),
@@ -370,7 +375,7 @@ def recommend_videos(count = 10, video_id = None):
                 "title": video.get("title"),
                 "watched": False,
                 "liked": False, #should be false because the user has not watched it before
-                "likevalues": feedbacks.count_documents({"post_id": video.get("id"), "value": "1"})
+                "likevalues": feedback_map.get(video.get("id"))
             }
             # print(temp)
             v.append(temp)
@@ -378,11 +383,8 @@ def recommend_videos(count = 10, video_id = None):
     print("length of recommendations after using item filtering:", len(v))
     if left > 0:#next is user-based filtering
         if len(data) != 0 and feedbacks.count_documents({"user_id": user}):#There is feedback to decide what to train and user has done recommendations before
-            print("starting user filtering")
+            # print("starting user filtering")
             df = pd.DataFrame(data)
-
-            # Optionally, you may want to ensure the columns are named properly
-            df = df[['user_id', 'post_id', 'value']]  # Select relevant columns
             user_item_matrix = df.pivot_table(index='user_id', columns='post_id', values='value', fill_value=0)
             user_similarity = cosine_similarity(user_item_matrix)
             # Step 5: Convert similarity matrix to DataFrame for better readability
@@ -392,12 +394,17 @@ def recommend_videos(count = 10, video_id = None):
             id_list = [id for id,_ in recommended_items]
             id_list_and_not_watched = list(set(id_list) & set(not_watched))
             not_watched_and_not_recommended = list(set(not_watched) - set(id_list))
-            print("recommended videos", id_list)
-            print("recommended videos not watched", id_list_and_not_watched)
+            # print("recommended videos", id_list)
+            # print("recommended videos not watched", id_list_and_not_watched)
             # print("not recommended videos not watched", not_watched_and_not_recommended)
             not_recommended = list(movies.find({'id': {'$in': not_watched_and_not_recommended}}, {"_id": 0}))#list of videos that are not recommended and not watched
             recommended = list(movies.find({'id': {'$in': id_list_and_not_watched}}, {"_id": 0}))#list of videos that are are recommended and not watched
-            print("length of recommendations:", len(recommended))
+            # print("length of recommendations:", len(recommended))
+            feedback_map = feedbacks.aggregate([
+                {"$match": {"post_id": {"$in": id_list_and_not_watched}}},
+                {"$group": {"_id": "$post_id", "count": {"$sum": 1}}}
+            ])
+            feedback_map = {f["_id"]: f["count"] for f in feedback_map}
             for video in recommended:#video is post_id so I will need to first find the movie in movies collection to get the actual description
                 temp = {
                     "id": video.get("id"),
@@ -405,7 +412,7 @@ def recommend_videos(count = 10, video_id = None):
                     "title": video.get("title"),
                     "watched": False,
                     "liked": False, #should be false because the user has not watched it before
-                    "likevalues": feedbacks.count_documents({"post_id": video.get("id"), "value": "1"})
+                    "likevalues": feedback_map.get(video.get("id"))
                 }
                 # print(temp)
                 v.append(temp)
@@ -414,10 +421,10 @@ def recommend_videos(count = 10, video_id = None):
     if left > 0:
         recommend_watched(v, user, not_recommended, left)
     left = count - len(v)
-    print("length of recommendations after adding not watched and not recommended:", len(v))
+    # print("length of recommendations after adding not watched and not recommended:", len(v))
     if left > 0 and len(videos):
         recommend_random(v, videos, watched, left)
-    print("length of recommendations after adding randoms:", len(v))
+    # print("length of recommendations after adding randoms:", len(v))
     return v
 
 def recommend_watched(v, user, videos, left):#get watched, get all videos, get the difference between them and return random ones in those
@@ -429,7 +436,13 @@ def recommend_watched(v, user, videos, left):#get watched, get all videos, get t
 
     if len(videos) > left:#If there are more not watched videos than count, we have to randomly choose which ones to recommend
         videos = random.choices(videos, k = left)
-    print("length of not watched and not recommended", len(videos))
+    # print("length of not watched and not recommended", len(videos))
+    id_list = [video.get("id") for video in videos]
+    feedback_map = feedbacks.aggregate([
+        {"$match": {"post_id": {"$in": id_list}}},
+        {"$group": {"_id": "$post_id", "count": {"$sum": 1}}}
+    ])
+    feedback_map = {f["_id"]: f["count"] for f in feedback_map}
     while videos:
         video = videos.pop(0)
         temp = {
@@ -438,7 +451,7 @@ def recommend_watched(v, user, videos, left):#get watched, get all videos, get t
             "title": video.get("title"),
             "watched": False,
             "liked": False, #should be false because the user has not watched it before
-            "likevalues": feedbacks.count_documents({"post_id": video.get("id"), "value": "1"})
+            "likevalues": feedback_map.get(video.get("id"))
         }
         v.append(temp)
         
@@ -447,6 +460,11 @@ def recommend_random(v, videos, watched, left):
     numbers = list(range(0, n))
     random.shuffle(numbers)
     i = 0
+    feedback_map = feedbacks.aggregate([
+        {"$match": {}},
+        {"$group": {"_id": "$post_id", "count": {"$sum": 1}}}
+    ])
+    feedback_map = {f["_id"]: f["count"] for f in feedback_map}
     while left:
         if i == n:#loops back to the start and randomizes the list again. This way it picks all the videos before randomly starting again
             i = 0
@@ -457,14 +475,14 @@ def recommend_random(v, videos, watched, left):
         liked = feedbacks.find_one({"user_id": session['username'], "post_id": id})
         if not liked:
             liked = 0
-        print("liked value", liked)
+        # print("liked value", liked)
         temp = {
             "id": id,
             "description": video.get("description"),
             "title": video.get("title"),
             "watched": id in watched,
             "liked": convert_value(liked),
-            "likevalues": feedbacks.count_documents({"post_id": id, "value": "1"})
+            "likevalues": feedback_map.get(video.get("id"))
         }
         v.append(temp)
         left-=1
@@ -551,8 +569,8 @@ def like():
 #The reccommendation system. It was described in /api/videos
 def recommend_items(user_id, user_item_matrix, user_similarity_df, count = 10):
     # Step 7: Get similar users to the given user
-    print(user_id)
-    print(user_item_matrix)
+    # print(user_id)
+    # print(user_item_matrix)
     similar_users = user_similarity_df[user_id][user_similarity_df[user_id] > 0].sort_values(ascending=False)[1:].index
     # print(f"\nMost similar users to User {user_id}: {similar_users}, {user_similarity_df[user_id][user_similarity_df[user_id] > 0].sort_values(ascending=False)}")
     
@@ -580,6 +598,7 @@ def add_movies_to_db():
     with open(video_files, 'r') as file:
         videos = json.load(file)
     # print(videos.items())
+    movies.create_index({ "id": 1 })
     for video in videos.items():
         print(video)
         movie = {
@@ -649,10 +668,10 @@ def upload_video():
     
 
     file_path = os.path.join(UPLOAD_FOLDER, secure_filename(mp4_file.filename))
-    try:
-        mp4_file.save(file_path)
-    except Exception as e:
-        return jsonify({"error": True, "message": f"File save error: {str(e)}", "status": "ERROR"}), 500
+    # try:
+    #     mp4_file.save(file_path)
+    # except Exception as e:
+    #     return jsonify({"error": True, "message": f"File save error: {str(e)}", "status": "ERROR"}), 500
 
     # print("the file: "+str(mp4_file.filename))
     # print("inputed value: '"+str(file_path)+"'")
@@ -664,8 +683,8 @@ def upload_video():
     pad_dir = './static/padded_upload'
     #q.enqueue(process_video, file_path, output_dir, movie_id)
 
-    thread = Thread(target=process_video, args=(file_path, output_dir, pad_dir, movie_id, movies, users, username))
-    thread.start()
+    # thread = Thread(target=process_video, args=(file_path, output_dir, pad_dir, movie_id, movies, users, username))
+    # thread.start()
     # command = ['./convert.sh', file_path, output_dir]
     # try:
     #     result = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)

@@ -6,7 +6,9 @@ thumbnails/
 play/
 videos/
 python/static/padded_videos/
+python/static/padded_upload/
 python/static/videos/
+python/static/upload/
 media_old/
 nginx/certs
 nginx/certs-data

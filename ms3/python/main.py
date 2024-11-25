@@ -60,7 +60,7 @@ public_endpoints = set([
 ])
 
 #If a method is not in public_endpoints, then you must be logged in to use the api. Comment this out to use everything without logging in
-#@app.before_request
+@app.before_request
 def require_login():
     # Check if the requested endpoint is not in the public endpoints
     if request.endpoint not in public_endpoints and not is_authenticated():
@@ -139,7 +139,7 @@ def add_user_body(name, password, email):
         "username": name,
         "password": password,
         "email": email,
-        "disabled": False,
+        "disabled": True,
         "verification_key": verification_key,
         "watched": [],
         "uploaded": []
@@ -319,7 +319,9 @@ def videos():
 
 def recommend_videos(count = 10, video_id = None):
     # print("count", count)
-    data = list(feedbacks.find({}, {"_id": 0}))
+    f = feedbacks.find({}, {"_id": 0})
+    data = list(f)
+    # print(data)
     v = []#list of videos to recommend
     user = session['username']
     videos = list(movies.find({}, {"_id": 0}))   #all videos in the database
@@ -329,24 +331,25 @@ def recommend_videos(count = 10, video_id = None):
     not_watched = list(set(all_ids) - set(watched))
     # print("videos that are not watched", not_watched)
     not_recommended = []#has to also be not watched
-    if video_id != None and len(data) != 0:#item-based filtering     it transposes the user filtering data frame so video_ids are the rows. 
+    # print(video_id)
+    if video_id != None and any(d.get('post_id') == video_id for d in data):#item-based filtering     it transposes the user filtering data frame so video_ids are the rows. 
                                                 #This is so we can use cosine_similarity to find similar videos based on likes/dislikes.
                                                 #Then we get the like profile of our video and find other videos with similar profiles.
-        print("item filtering")
+        # print("item filtering")
         df = pd.DataFrame(data)
-
-        df = df[['post_id', 'user_id', 'value']]  # Select relevant columns
+        df = df[['user_id', 'post_id', 'value']]  # Select relevant columns
         user_item_matrix = df.pivot_table(index='post_id', columns='user_id', values='value', fill_value=0)
-        print(user_item_matrix)
+        # print("user item matrix", user_item_matrix)
         similarity_matrix = cosine_similarity(user_item_matrix)
-        print(similarity_matrix)
+        # print("similarity_matrix", similarity_matrix)
         video_id_to_index = {video_id: idx for idx, video_id in enumerate(user_item_matrix.index)}
         index_to_video_id = {idx: video_id for idx, video_id in enumerate(user_item_matrix.index)}
+        # print(video_id_to_index)
         index = video_id_to_index.get(video_id)
         video_similarities = similarity_matrix[index]   #We need the index because video_id is not a number.
-        print(index)
+        # print(index)
         similar_videos = pd.Series(video_similarities).sort_values()[lambda x: x != 0].index.values  # Sort in descending order, excluding values of 0 for videos that aren't similar
-        print("indices of similar videos", similar_videos)
+        # print("indices of similar videos", similar_videos)
         similar_videos = similar_videos[similar_videos != index]  # Exclude the video itself
         similar_videos = similar_videos[:count] #get up to count number of videos
         id_list = [index_to_video_id[idx] for idx in similar_videos]
@@ -411,7 +414,7 @@ def recommend_videos(count = 10, video_id = None):
     left = count - len(v)
     print("length of recommendations after adding not watched and not recommended:", len(v))
     if left > 0 and len(videos):
-        recommend_random(v, videos, left)
+        recommend_random(v, videos, watched, left)
     print("length of recommendations after adding randoms:", len(v))
     return v
 
@@ -437,7 +440,7 @@ def recommend_watched(v, user, videos, left):#get watched, get all videos, get t
         }
         v.append(temp)
         
-def recommend_random(v, videos, left):
+def recommend_random(v, videos, watched, left):
     n = len(videos)
     numbers = list(range(0, n))
     random.shuffle(numbers)
@@ -448,13 +451,18 @@ def recommend_random(v, videos, left):
             random.shuffle(numbers)
         video = videos[numbers[i]]
         i+=1
+        id = video.get("id")
+        liked = feedbacks.find_one({"user_id": session['username'], "post_id": id})
+        if not liked:
+            liked = 0
+        print("liked value", liked)
         temp = {
-            "id": video.get("id"),
+            "id": id,
             "description": video.get("description"),
             "title": video.get("title"),
-            "watched": False,
-            "liked": False, #should be false because the user has not watched it before
-            "likevalues": feedbacks.count_documents({"post_id": video.get("id"), "value": "1"})
+            "watched": id in watched,
+            "liked": convert_value(liked),
+            "likevalues": feedbacks.count_documents({"post_id": id, "value": "1"})
         }
         v.append(temp)
         left-=1
@@ -759,7 +767,9 @@ def processing_status():
 #The base url. If logged in, goes to index.html, else it goes to rootlogin. If using POST, then it logs in with request.form information
 @app.route("/", methods=['POST', 'GET'])
 def hello_world():
+    print(f"Request received on port: {request.environ['SERVER_PORT']}")
     if 'username' in session:
+        print("has username")
         videos = recommend_videos()
         # video_dict = {video['id']: video['description'] for video in videos}
         # print(videos, len(videos))
@@ -802,7 +812,11 @@ def list_videos():
     #print("Videofile1: "+str(video_files))
     return jsonify(video_files)
 
-
+def convert_value(value):#converts int to boolean and viceverse
+    if type(value) == int:
+        return {1: True, -1: False, 0: None}.get(value, None)
+    else:
+        return {True: 1, False: -1, None: 0}.get(value, 0)
 
 
 if __name__ == "__main__":

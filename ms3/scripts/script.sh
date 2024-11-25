@@ -13,9 +13,8 @@ mkdir -p "$output_dir"
 for video in "$input_dir"/*.mp4; do
     # Get the base filename without extension
     filename=$(basename "$video" .mp4)
-    
-    # Construct the ffmpeg command
-    ffmpeg -i "$video" \
+    if [ ! -f "$output_dir/${filename}.mpd" ]; then
+        ffmpeg -i "$video" \
         -map 0:v -b:v:0 512k -s:v:0 640x360 \
         -map 0:v -b:v:1 768k -s:v:1 960x540 \
         -map 0:v -b:v:2 1024k -s:v:2 1280x720 \
@@ -24,5 +23,18 @@ for video in "$input_dir"/*.mp4; do
         -media_seg_name "${filename}_\$Bandwidth\$_\$Number\$.m4s" \
         -adaptation_sets "id=0,streams=v" \
         "$output_dir/${filename}.mpd"
+    else
+        echo "File already exists, skipping processing. $output_dir/${filename}.mpd"
+    fi
+    # Construct the ffmpeg command
+    # ffmpeg -i "$video" \
+    #     -map 0:v -b:v:0 512k -s:v:0 640x360 \
+    #     -map 0:v -b:v:1 768k -s:v:1 960x540 \
+    #     -map 0:v -b:v:2 1024k -s:v:2 1280x720 \
+    #     -f dash -seg_duration 10 -use_template 1 -use_timeline 1 \
+    #     -init_seg_name "${filename}_\$RepresentationID\$_init.m4s" \
+    #     -media_seg_name "${filename}_\$Bandwidth\$_\$Number\$.m4s" \
+    #     -adaptation_sets "id=0,streams=v" \
+    #     "$output_dir/${filename}.mpd"
 
 done

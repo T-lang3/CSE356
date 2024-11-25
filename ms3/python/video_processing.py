@@ -16,7 +16,7 @@ def process_video(file_path, output_dir, pad_dir, movie_id, movies, users, usern
     print("stored path: "+f"{output_dir}/{filename}")       #'
     pad_command = [
         "ffmpeg", "-i", file_path,
-        "-vf", "scale=w=iw*min(1280/iw\,720/ih):h=ih*min(1280/iw\,720/ih),pad=1280:720:(1280-iw*min(1280/iw\,720/ih))/2:(720-ih*min(1280/iw\,720/ih))/2",
+        "-vf", "scale=w=iw*min(1280/iw,720/ih):h=ih*min(1280/iw,720/ih),pad=1280:720:(1280-iw*min(1280/iw,720/ih))/2:(720-ih*min(1280/iw,720/ih))/2",
         "-c:a", "copy",
         f"{pad_dir}/{movie_id}.mp4", "-y"
     ]

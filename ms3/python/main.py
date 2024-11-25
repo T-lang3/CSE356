@@ -301,10 +301,11 @@ def get_count_from_request():
     if request.method == 'POST':
         data = request.json
         count = data.get('count', 10)  # Get 'count' from JSON or use 10 as default
-        video_id = data.get('videoID', "3032568-uhd_3840_2160_25fps")
+        video_id = data.get('videoId')
+        print("video id is", video_id)
     else:
         count = int(request.args.get('count', 10))  # Get 'count' from query string or use 10 as default
-        video_id = request.args.get('video_id', "3032568-uhd_3840_2160_25fps")  # Get 'count' from query string or use 10 as default
+        video_id = request.args.get('videoId')  # Get 'count' from query string or use 10 as default
     return count, video_id
 
 #sends a json of recommended videos. Gets all the feedback from the feedback collection which has {user_id, post_id, value}. Creates a sparse table and runs
@@ -331,7 +332,7 @@ def recommend_videos(count = 10, video_id = None):
     not_watched = list(set(all_ids) - set(watched))
     # print("videos that are not watched", not_watched)
     not_recommended = []#has to also be not watched
-    # print(video_id)
+    print(video_id)
     if video_id != None and any(d.get('post_id') == video_id for d in data):#item-based filtering     it transposes the user filtering data frame so video_ids are the rows. 
                                                 #This is so we can use cosine_similarity to find similar videos based on likes/dislikes.
                                                 #Then we get the like profile of our video and find other videos with similar profiles.
@@ -339,21 +340,21 @@ def recommend_videos(count = 10, video_id = None):
         df = pd.DataFrame(data)
         df = df[['user_id', 'post_id', 'value']]  # Select relevant columns
         user_item_matrix = df.pivot_table(index='post_id', columns='user_id', values='value', fill_value=0)
-        # print("user item matrix", user_item_matrix)
+        print("user item matrix", user_item_matrix)
         similarity_matrix = cosine_similarity(user_item_matrix)
-        # print("similarity_matrix", similarity_matrix)
+        print("similarity_matrix", similarity_matrix)
         video_id_to_index = {video_id: idx for idx, video_id in enumerate(user_item_matrix.index)}
         index_to_video_id = {idx: video_id for idx, video_id in enumerate(user_item_matrix.index)}
-        # print(video_id_to_index)
+        print(video_id_to_index)
         index = video_id_to_index.get(video_id)
         video_similarities = similarity_matrix[index]   #We need the index because video_id is not a number.
-        # print(index)
+        print(index)
         similar_videos = pd.Series(video_similarities).sort_values()[lambda x: x != 0].index.values  # Sort in descending order, excluding values of 0 for videos that aren't similar
-        # print("indices of similar videos", similar_videos)
+        print("indices of similar videos", similar_videos)
         similar_videos = similar_videos[similar_videos != index]  # Exclude the video itself
         similar_videos = similar_videos[:count] #get up to count number of videos
         id_list = [index_to_video_id[idx] for idx in similar_videos]
-        # print("ids of not watched videos", not_watched)
+        print("ids of not watched videos", not_watched)
         id_list_and_not_watched = list(set(id_list) & set(not_watched))
         not_watched_and_not_recommended = list(set(not_watched) - set(id_list))
         print("recommended videos", id_list)
@@ -374,9 +375,10 @@ def recommend_videos(count = 10, video_id = None):
             # print(temp)
             v.append(temp)
     left = count - len(v)
-    print("length of recommendations after adding recommended and not watched:", len(v))
+    print("length of recommendations after using item filtering:", len(v))
     if left > 0:#next is user-based filtering
         if len(data) != 0 and feedbacks.count_documents({"user_id": user}):#There is feedback to decide what to train and user has done recommendations before
+            print("starting user filtering")
             df = pd.DataFrame(data)
 
             # Optionally, you may want to ensure the columns are named properly
@@ -470,6 +472,7 @@ def recommend_random(v, videos, watched, left):
 @app.route('/api/thumbnail/<id>', methods=['GET'])
 def get_thumbnail(id):
     thumbnail_path = os.path.join("static/thumbnails/", f"{os.path.splitext(id)[0]}.jpg")
+    # print(thumbnail_path)
     # Send the thumbnail as a response
     if os.path.exists(thumbnail_path):
         return send_file(thumbnail_path, mimetype='image/jpg')
@@ -608,6 +611,7 @@ def upload_video():
     mp4_file = request.files.get('mp4File')
 
     if not author or not title or not mp4_file:
+        print(f"missing information {author}, {title}, {description}")
         return jsonify({"error": True, "message": "Missing fields", "status": "ERROR"}), 400
 
     #save movie to database
@@ -707,7 +711,7 @@ def upload_video():
         # Remove the temporary file
         os.remove(file_path)'''
 
-    return jsonify({"id": movie_id}), 202
+    return jsonify({"status": "OK", "id": movie_id}), 202
 
 
             

@@ -55,7 +55,8 @@ public_endpoints = set([
     'login',
     'tlogin',
     'logout',
-    'get_session',  # Add your public endpoint names here
+    'get_session',
+    'add_movies_to_db',  # Add your public endpoint names here
     # Add more public endpoints as needed
 ])
 
@@ -77,12 +78,12 @@ def generate_verification_key():
 # # video_ids = [id for id,description in data]
 
 # count10 = dict(list(data.items())[0:10])
-# print(count10)
+# #print(count10)
     
 #sends the media. Used when player.html asks for a file
 @app.route("/media/<path:filename>")
 def serve_media(filename):
-    print("hello")
+    #print("hello")
     media_dir = "/root/CSE356/ms1/media/"
     filename = filename.lstrip("media/")
     return send_file(os.path.join(media_dir, filename), as_attachment=True)
@@ -144,23 +145,23 @@ def add_user_body(name, password, email):
         "watched": [],
         "uploaded": []
     }
-    print("adding user")
+    #print("adding user")
 
     found_name = users.find_one({'username': name})
     found_email = users.find_one({'email': email})
     
     if (found_name or found_email):
-        print("duplicate user")
+        #print("duplicate user")
         return ret_json(1, "Duplicate name or email")
     
     # Insert the document into the users collection
     try:
         users.insert_one(user)
-        print("inserted user", user)
+        #print("inserted user", user)
         # urllib.parse.quote(email)
         # urllib.parse.quote(verification_key)
         verification_link = f"http://tim.cse356.compas.cs.stonybrook.edu/api/verify?email={email}&key={verification_key}"
-        print(verification_link)
+        #print(verification_link)
         # Send the verification email (Here you would integrate your mail server logic)
         send_verification_email(email, verification_link)
         return ret_json(0, f"User added! Please verify with url that was sent to email. {verification_link}")
@@ -174,10 +175,10 @@ def verify_email():
     key = request.args.get('key')
     # if "key" in request.url:
     #     user = users.find_one({'email': email})
-    print(f"Received email: {email}, key: {key}")
+    #print(f"Received email: {email}, key: {key}")
     email = email.replace(" ", "+")
-    print(f"Received email: {email}, key: {key}")
-    print(f"URL is: {request.url}")
+    #print(f"Received email: {email}, key: {key}")
+    #print(f"URL is: {request.url}")
     user = users.find_one({'email': email})
     if user is None:
         return ret_json(1, "User not found")
@@ -189,7 +190,7 @@ def verify_email():
         formatted_json = json_data.replace('"status":"ERROR"', '"status": "ERROR"')
         return formatted_json
     # Find the user by email
-    print(user)
+    #print(user)
     if user:
         # Check if the key matches and the user is disabled
         if user['disabled']:
@@ -203,13 +204,13 @@ def verify_email():
     
 
 def send_verification_email(email, link):
-    print(link)
+    #print(link)
     msg = EmailMessage()
     msg.set_content(link)
     msg['Subject'] = 'Verify your account'
     msg['From'] = 'no-reply@tim.cse356.compas.cs.stonybrook.edu'
     msg['To'] = email
-    print(msg.as_string())
+    #print(msg.as_string())
     with smtplib.SMTP('localhost', 587) as server:
         server.send_message(msg)
 
@@ -224,15 +225,15 @@ def login():
         # password = request.form.get('password')
         
         user = users.find_one({'username': username})
-        print("login")
+        #print("login")
         if user is None:
-            print(username)
+            #print(username)
             return ret_json(1, "User not created")
         if user['disabled']:
-            print("disable", user)
+            #print("disable", user)
             return ret_json(1, "User not yet verified.")
         
-        print("logged in" , user)
+        #print("logged in" , user)
 
         # Replace with your user validation logic
         if user['username'] == username and user['password'] == password:
@@ -254,15 +255,15 @@ def tlogin():
         password = request.form.get('password')
         
         user = users.find_one({'username': username})
-        print("login")
+        #print("login")
         if user is None:
-            print(username)
+            #print(username)
             return ret_json(1, "User not created")
         if user['disabled']:
-            print("disable", user)
+            #print("disable", user)
             return ret_json(1, "User not yet verified.")
         
-        print("logged in" , user)
+        #print("logged in" , user)
 
         # Replace with your user validation logic
         if user['username'] == username and user['password'] == password:
@@ -302,7 +303,7 @@ def get_count_from_request():
         data = request.json
         count = data.get('count', 10)  # Get 'count' from JSON or use 10 as default
         video_id = data.get('videoId')
-        print("video id is", video_id)
+        #print("video id is", video_id)
     else:
         count = int(request.args.get('count', 10))  # Get 'count' from query string or use 10 as default
         video_id = request.args.get('videoId')  # Get 'count' from query string or use 10 as default
@@ -319,50 +320,50 @@ def videos():
     return json.dumps({"status": "OK", "videos": recommendations})
 
 def recommend_videos(count = 10, video_id = None):
-    # print("count", count)
+    # #print("count", count)
     f = feedbacks.find({}, {"_id": 0})
     data = list(f)
-    # print(data)
+    # #print(data)
     v = []#list of videos to recommend
     user = session['username']
     videos = list(movies.find({}, {"_id": 0}))   #all videos in the database
     watched = users.find_one({"username": user}).get("watched", [])     #which videos a user has watched. Only the ids
-    # print(videos)
+    # #print(videos)
     all_ids = [video.get("id") for video in videos]
     not_watched = list(set(all_ids) - set(watched))
-    # print("videos that are not watched", not_watched)
+    # #print("videos that are not watched", not_watched)
     not_recommended = []#has to also be not watched
-    # print(video_id)
-    # print(feedback_map)
+    # #print(video_id)
+    # #print(feedback_map)
     if video_id != None and any(d.get('post_id') == video_id for d in data):#item-based filtering     it transposes the user filtering data frame so video_ids are the rows. 
                                                 #This is so we can use cosine_similarity to find similar videos based on likes/dislikes.
                                                 #Then we get the like profile of our video and find other videos with similar profiles.
-        # print("item filtering")
+        # #print("item filtering")
         df = pd.DataFrame(data)
-        user_item_matrix = df.pivot_table(index='post_id', columns='user_id', values='value', fill_value=0)
-        # print("user item matrix", user_item_matrix)
+        user_item_matrix = df.pivot_table(index='post_id', columns='user_id', values='value', fill_value=0).astype('int8')
+        # #print("user item matrix", user_item_matrix)
         similarity_matrix = cosine_similarity(user_item_matrix)
-        # print("similarity_matrix", similarity_matrix)
+        # #print("similarity_matrix", similarity_matrix)
         video_id_to_index = {video_id: idx for idx, video_id in enumerate(user_item_matrix.index)}
         index_to_video_id = {idx: video_id for idx, video_id in enumerate(user_item_matrix.index)}
-        # print(video_id_to_index)
+        # #print(video_id_to_index)
         index = video_id_to_index.get(video_id)
         video_similarities = similarity_matrix[index]   #We need the index because video_id is not a number.
-        # print(index)
+        # #print(index)
         similar_videos = pd.Series(video_similarities).sort_values()[lambda x: x != 0].index.values  # Sort in descending order, excluding values of 0 for videos that aren't similar
-        # print("indices of similar videos", similar_videos)
+        # #print("indices of similar videos", similar_videos)
         similar_videos = similar_videos[similar_videos != index]  # Exclude the video itself
         similar_videos = similar_videos[:count] #get up to count number of videos
         id_list = [index_to_video_id[idx] for idx in similar_videos]
-        # print("ids of not watched videos", not_watched)
+        # #print("ids of not watched videos", not_watched)
         id_list_and_not_watched = list(set(id_list) & set(not_watched))
         not_watched_and_not_recommended = list(set(not_watched) - set(id_list))
-        # print("recommended videos", id_list)
-        # print("recommended videos not watched", id_list_and_not_watched)
-        # print("not recommended videos not watched", not_watched_and_not_recommended)
+        # #print("recommended videos", id_list)
+        # #print("recommended videos not watched", id_list_and_not_watched)
+        # #print("not recommended videos not watched", not_watched_and_not_recommended)
         not_recommended = list(movies.find({'id': {'$in': not_watched_and_not_recommended}}, {"_id": 0}))#list of videos that are not recommended and not watched
         recommended = list(movies.find({'id': {'$in': id_list_and_not_watched}}, {"_id": 0}))#list of videos that are are recommended and not watched
-        # print("length of recommendations:", len(recommended))
+        # #print("length of recommendations:", len(recommended))
         feedback_map = feedbacks.aggregate([
             {"$match": {"post_id": {"$in": id_list_and_not_watched}}},
             {"$group": {"_id": "$post_id", "count": {"$sum": 1}}}
@@ -377,15 +378,15 @@ def recommend_videos(count = 10, video_id = None):
                 "liked": False, #should be false because the user has not watched it before
                 "likevalues": feedback_map.get(video.get("id"))
             }
-            # print(temp)
+            # #print(temp)
             v.append(temp)
     left = count - len(v)
-    print("length of recommendations after using item filtering:", len(v))
+    #print("length of recommendations after using item filtering:", len(v))
     if left > 0:#next is user-based filtering
         if len(data) != 0 and feedbacks.count_documents({"user_id": user}):#There is feedback to decide what to train and user has done recommendations before
-            # print("starting user filtering")
+            # #print("starting user filtering")
             df = pd.DataFrame(data)
-            user_item_matrix = df.pivot_table(index='user_id', columns='post_id', values='value', fill_value=0)
+            user_item_matrix = df.pivot_table(index='user_id', columns='post_id', values='value', fill_value=0).astype('int8')
             user_similarity = cosine_similarity(user_item_matrix)
             # Step 5: Convert similarity matrix to DataFrame for better readability
 
@@ -394,12 +395,12 @@ def recommend_videos(count = 10, video_id = None):
             id_list = [id for id,_ in recommended_items]
             id_list_and_not_watched = list(set(id_list) & set(not_watched))
             not_watched_and_not_recommended = list(set(not_watched) - set(id_list))
-            # print("recommended videos", id_list)
-            # print("recommended videos not watched", id_list_and_not_watched)
-            # print("not recommended videos not watched", not_watched_and_not_recommended)
+            # #print("recommended videos", id_list)
+            # #print("recommended videos not watched", id_list_and_not_watched)
+            # #print("not recommended videos not watched", not_watched_and_not_recommended)
             not_recommended = list(movies.find({'id': {'$in': not_watched_and_not_recommended}}, {"_id": 0}))#list of videos that are not recommended and not watched
             recommended = list(movies.find({'id': {'$in': id_list_and_not_watched}}, {"_id": 0}))#list of videos that are are recommended and not watched
-            # print("length of recommendations:", len(recommended))
+            # #print("length of recommendations:", len(recommended))
             feedback_map = feedbacks.aggregate([
                 {"$match": {"post_id": {"$in": id_list_and_not_watched}}},
                 {"$group": {"_id": "$post_id", "count": {"$sum": 1}}}
@@ -414,17 +415,17 @@ def recommend_videos(count = 10, video_id = None):
                     "liked": False, #should be false because the user has not watched it before
                     "likevalues": feedback_map.get(video.get("id"))
                 }
-                # print(temp)
+                # #print(temp)
                 v.append(temp)
     left = count - len(v)
-    print("length of recommendations after adding recommended and not watched:", len(v))
+    #print("length of recommendations after adding recommended and not watched:", len(v))
     if left > 0:
         recommend_watched(v, user, not_recommended, left)
     left = count - len(v)
-    # print("length of recommendations after adding not watched and not recommended:", len(v))
+    # #print("length of recommendations after adding not watched and not recommended:", len(v))
     if left > 0 and len(videos):
         recommend_random(v, videos, watched, left)
-    # print("length of recommendations after adding randoms:", len(v))
+    # #print("length of recommendations after adding randoms:", len(v))
     return v
 
 def recommend_watched(v, user, videos, left):#get watched, get all videos, get the difference between them and return random ones in those
@@ -436,7 +437,7 @@ def recommend_watched(v, user, videos, left):#get watched, get all videos, get t
 
     if len(videos) > left:#If there are more not watched videos than count, we have to randomly choose which ones to recommend
         videos = random.choices(videos, k = left)
-    # print("length of not watched and not recommended", len(videos))
+    # #print("length of not watched and not recommended", len(videos))
     id_list = [video.get("id") for video in videos]
     feedback_map = feedbacks.aggregate([
         {"$match": {"post_id": {"$in": id_list}}},
@@ -475,7 +476,7 @@ def recommend_random(v, videos, watched, left):
         liked = feedbacks.find_one({"user_id": session['username'], "post_id": id})
         if not liked:
             liked = 0
-        # print("liked value", liked)
+        # #print("liked value", liked)
         temp = {
             "id": id,
             "description": video.get("description"),
@@ -490,7 +491,7 @@ def recommend_random(v, videos, watched, left):
 @app.route('/api/thumbnail/<id>', methods=['GET'])
 def get_thumbnail(id):
     thumbnail_path = os.path.join("static/thumbnails/", f"{os.path.splitext(id)[0]}.jpg")
-    # print(thumbnail_path)
+    # #print(thumbnail_path)
     # Send the thumbnail as a response
     if os.path.exists(thumbnail_path):
         return send_file(thumbnail_path, mimetype='image/jpg')
@@ -512,7 +513,7 @@ def ret_json(status:int, message:str):#has to have /output.md return error
 #serves the DASH player in player.html
 @app.route("/play/<id>")
 def serve_video(id):
-    #print(data)
+    ##print(data)
     return render_template('player.html', id=id, username = session['username'])
     
 #serves the manifest which downloads
@@ -535,25 +536,23 @@ def like():
         data = request.json
         id = data.get('id', 1)
         value = data.get('value')
-        v = data.get('video', 0)
-        print("videoID", v)
-        if data.get('user'):
-            user = data.get('user')
+        # v = data.get('video', 0)
+        # #print("videoID", v)
         value = 1 if value == True else -1 if value == False else 0
     else:
         id = request.args.get('id')
         value = int(request.args.get('value', 1))
-        print(value)
+        # #print(value)
         if request.args.get('user'):
             user = request.args.get('user')
-    print("id, value", id, value)
+    # #print("id, value", id, value)
 
     current_feedback = feedbacks.find_one({"user_id": user, "post_id": id})
     
-    print(type(value))
+    # #print(type(value))
     if current_feedback and current_feedback['value'] == value:
         like_count = feedbacks.count_documents({"post_id": id, "value": 1})
-        print("same value as before for user", session['username'])
+        # #print("same value as before for user", session['username'])
         return ret_json(1, "Same value as before")
     if current_feedback:
         feedbacks.update_one(
@@ -563,26 +562,26 @@ def like():
     else:
         feedbacks.insert_one({"user_id": user, "post_id": id, "value": value})
     like_count = feedbacks.count_documents({"post_id": id, "value": 1})
-    print("updated value")
+    # #print("updated value")
     return json.dumps({"status": "OK", "likes": like_count})
 
 #The reccommendation system. It was described in /api/videos
 def recommend_items(user_id, user_item_matrix, user_similarity_df, count = 10):
     # Step 7: Get similar users to the given user
-    # print(user_id)
-    # print(user_item_matrix)
+    # #print(user_id)
+    # #print(user_item_matrix)
     similar_users = user_similarity_df[user_id][user_similarity_df[user_id] > 0].sort_values(ascending=False)[1:].index
-    # print(f"\nMost similar users to User {user_id}: {similar_users}, {user_similarity_df[user_id][user_similarity_df[user_id] > 0].sort_values(ascending=False)}")
+    # #print(f"\nMost similar users to User {user_id}: {similar_users}, {user_similarity_df[user_id][user_similarity_df[user_id] > 0].sort_values(ascending=False)}")
     
     # Step 8: Aggregate ratings from similar users
     recommended_items = {}
     for similar_user in similar_users:
         for item, rating in user_item_matrix.loc[similar_user].items():
-            # print(item, rating, user_item_matrix.loc[user_id][item] != 0)
+            # #print(item, rating, user_item_matrix.loc[user_id][item] != 0)
             if rating > 0 and user_item_matrix.loc[user_id][item] == 0:  # Avoid already rated items
                 if item not in recommended_items:
                     recommended_items[item] = rating
-                    # print("added item", item)
+                    # #print("added item", item)
                 else:
                     recommended_items[item] += rating
 
@@ -597,10 +596,13 @@ def add_movies_to_db():
     videos = 0
     with open(video_files, 'r') as file:
         videos = json.load(file)
-    # print(videos.items())
-    movies.create_index({ "id": 1 })
+    # #print(videos.items())
+    movies.delete_many({})
+    counter.delete_many({})
+    users.delete_many({})
+    feedbacks.delete_many({})    #deletes everything in mongodb and sets it up again
     for video in videos.items():
-        print(video)
+        #print(video)
         movie = {
             "id": video[0].split(".")[0],
             "description": video[1],
@@ -617,7 +619,7 @@ def add_movies_to_db():
 
 #redis = Redis(host='localhost', port=6379, db=0)  
 #q = Queue(connection=redis, default_timeout=900)
-#print(redis.ping())
+##print(redis.ping())
 UPLOAD_FOLDER = './static/upload'
 OUTPUT = './media'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -630,7 +632,7 @@ def upload_video():
     mp4_file = request.files.get('mp4File')
 
     if not author or not title or not mp4_file:
-        print(f"missing information {author}, {title}, {description}")
+        #print(f"missing information {author}, {title}, {description}")
         return jsonify({"error": True, "message": "Missing fields", "status": "ERROR"}), 400
 
     #save movie to database
@@ -652,8 +654,8 @@ def upload_video():
     #user = users.find_one({"username": session['username']})
     user = db.users.find_one({"username": username})
 
-    # print("user: "+str(username))
-    # print(user, session['username'])
+    # #print("user: "+str(username))
+    # #print(user, session['username'])
     
     if user is None:
         return jsonify({"error": True, "message": "User not found", "status": "ERROR"}), 404
@@ -673,9 +675,9 @@ def upload_video():
     # except Exception as e:
     #     return jsonify({"error": True, "message": f"File save error: {str(e)}", "status": "ERROR"}), 500
 
-    # print("the file: "+str(mp4_file.filename))
-    # print("inputed value: '"+str(file_path)+"'")
-    # print("movie_id: '"+str(movie_id)+"'")
+    # #print("the file: "+str(mp4_file.filename))
+    # #print("inputed value: '"+str(file_path)+"'")
+    # #print("movie_id: '"+str(movie_id)+"'")
     # Resize and process the video using ffmpeg
 
     #changing ../media to ./media writes to the media folder in python
@@ -688,15 +690,15 @@ def upload_video():
     # command = ['./convert.sh', file_path, output_dir]
     # try:
     #     result = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    #     print("Script executed successfully")
+    #     #print("Script executed successfully")
     # except subprocess.CalledProcessError as e:
-    #     print(f"Error during execution: {e}")
+    #     #print(f"Error during execution: {e}")
 
-    # print("ruinn")
+    # #print("ruinn")
     # output_dir = os.path.join(OUTPUT, secure_filename(mp4_file.filename))
     # try:
     #     mp4_file.save(file_path)
-    #     print("saved to output")
+    #     #print("saved to output")
     # except Exception as e:
     #     return jsonify({"error": True, "message": f"File save error: {str(e)}", "status": "ERROR"}), 500
     #q.enqueue(process_video, file_path, OUTPUT, movie_id)
@@ -784,19 +786,19 @@ def processing_status():
             "status": video["processed"]
         }
         videos.append(video_data)
-    print(videos)
+    #print(videos)
     return jsonify({"videos": videos, "status": "OK"}), 200
 
 #The base url. If logged in, goes to index.html, else it goes to rootlogin. If using POST, then it logs in with request.form information
 @app.route("/", methods=['POST', 'GET'])
 def hello_world():
-    print(f"Request received on port: {request.environ['SERVER_PORT']}")
+    # #print(f"Request received on port: {request.environ['SERVER_PORT']}")
     if 'username' in session:
-        print("has username")
+        #print("has username")
         videos = recommend_videos()
         # video_dict = {video['id']: video['description'] for video in videos}
-        # print(videos, len(videos))
-        # print(video_dict, len(video_dict))
+        # #print(videos, len(videos))
+        # #print(video_dict, len(video_dict))
         return render_template('index.html', videos=videos)
     else:
         if request.method == 'POST':
@@ -807,15 +809,15 @@ def hello_world():
             password = request.form.get('password')
             
             user = users.find_one({'username': username})
-            print("login")
+            #print("login")
             if user is None:
-                print(username)
+                #print(username)
                 return ret_json(1, "User not created")
             if user['disabled']:
-                print("disable", user)
+                #print("disable", user)
                 return ret_json(1, "User not yet verified.")
             
-            print("logged in" , user)
+            #print("logged in" , user)
 
             # Replace with your user validation logic
             if user['username'] == username and user['password'] == password:
@@ -832,7 +834,7 @@ def hello_world():
 def list_videos():
     media_folder = os.path.join(os.path.dirname(__file__), 'media')
     video_files = [f for f in os.listdir(media_folder) if f.endswith('.mpd')]
-    #print("Videofile1: "+str(video_files))
+    ##print("Videofile1: "+str(video_files))
     return jsonify(video_files)
 
 def convert_value(value):#converts int to boolean and viceverse

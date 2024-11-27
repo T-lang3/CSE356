@@ -660,7 +660,8 @@ def upload_video():
     # Resize and process the video using ffmpeg
 
     #changing ../media to ./media writes to the media folder in python
-    output_dir = './media'
+    #output_dir = './media'
+    output_dir = './static/padded_upload'
     pad_dir = './static/padded_upload'
     #q.enqueue(process_video, file_path, output_dir, movie_id)
 
@@ -766,6 +767,7 @@ def processing_status():
         }
         videos.append(video_data)
     print(videos)
+    print(session['username'])
     return jsonify({"videos": videos, "status": "OK"}), 200
 
 #The base url. If logged in, goes to index.html, else it goes to rootlogin. If using POST, then it logs in with request.form information

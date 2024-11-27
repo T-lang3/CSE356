@@ -75,14 +75,14 @@ services:
   #     - mongo
   #   network_mode: host
 
-  redis:
-    image: redis:latest
-    container_name: redis
-    ports:
-      - 6379:6379
-    # environment:
-    #   - REDIS_PASSWORD=66cfe2a89ba30e1a6c70680a
-    command: ["redis-server"]
+  # redis:
+  #   image: redis:latest
+  #   container_name: redis
+  #   ports:
+  #     - 6379:6379
+  #   # environment:
+  #   #   - REDIS_PASSWORD=66cfe2a89ba30e1a6c70680a
+  #   command: ["redis-server"]
 
   # certbot:
   #   image: certbot/certbot

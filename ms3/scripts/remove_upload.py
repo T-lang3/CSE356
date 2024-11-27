@@ -30,13 +30,13 @@ for filename in os.listdir(upload):
             print(f"Error deleting {filename}: {e}")
 
 for filename in os.listdir(thumbnail):
-    if len(filename.split(".jpg")[0]) <= 2:
+    if len(filename.split(".jpg")[0]) <= 5:
         file_path = os.path.join(thumbnail, filename)  # get the full path of the file
         
         os.remove(file_path)  # Delete the file
 
 for filename in os.listdir(media):
-    if len(filename.split("_")[0]) <= 2:
+    if len(filename.split("_")[0]) <= 5:
         file_path = os.path.join(media, filename)  # get the full path of the file
         
         os.remove(file_path)  # Delete the file

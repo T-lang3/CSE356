@@ -11,3 +11,6 @@ s.sh creates the padded videos at 16:9 ratio. If a video is already 16:9, it jus
 copy.py copies the videos over as well. I made this because I accidentally made s.sh just skip over 16:9 videos originally.
 script.sh chunks the padded_videos
 ratio.sh prints out the width:height and aspect ratio of all the videos in /videos. I wanted to see all the different ratios.
+
+to handle multiple request use this command
+gunicorn -w 16 -t 2 -b 0.0.0.0:5000 main:app
